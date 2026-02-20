@@ -294,6 +294,7 @@ func (f *FamilyType) resolver(inheritedResolver ResolverType) (resolver.Resolver
 		if timeout == 0 {
 			timeout = time.Duration(resolver.CELDefaultTimeout) * time.Second
 		}
+
 		return resolver.NewCELResolver(f.logger, costLimit, timeout, f.celEvaluations, f.managedRMMNamespace, f.managedRMMName, f.Name), nil
 	default:
 		return nil, fmt.Errorf("error resolving metric: unknown resolver %q", inheritedResolver)
