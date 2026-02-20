@@ -1,6 +1,5 @@
 # Variables are declared in the order in which they occur.
 ASSETS_DIR ?= assets
-BENCH_TIMEOUT ?= 300
 BOILERPLATE_GO_COMPLIANT ?= hack/boilerplate.go.txt
 BOILERPLATE_YAML_COMPLIANT ?= hack/boilerplate.yaml.txt
 BRANCH = $(shell git rev-parse --abbrev-ref HEAD)
@@ -19,7 +18,6 @@ GOLANGCI_LINT_CONFIG ?= .golangci.yaml
 GOLANGCI_LINT_VERSION ?= v2.10.1
 GO_FILES = $(shell find . -type d -name vendor -prune -o -type f -name "*.go" -print)
 KUBECTL ?= kubectl
-KUBESTATEMETRICS_CUSTOMRESOURCESTATE_CONFIG ?= tests/bench/kubestatemetrics-custom-resource-state-config.yaml
 LOCAL_NAMESPACE ?= default
 MARKDOWNFMT ?= $(shell which markdownfmt)
 MARKDOWNFMT_VERSION ?= v3.1.0
@@ -28,9 +26,6 @@ PPROF_OPTIONS ?=
 PPROF_PORT ?= 9998
 PROJECT_NAME = resource-state-metrics
 RUNNER = $(shell id -u -n)@$(shell hostname)
-TEST_PKG ?= ./tests
-TEST_RUN_PATTERN ?= .
-TEST_TIMEOUT ?= 240
 V ?= 4
 VALE ?= vale
 VALE_ARCH ?= $(if $(filter $(shell uname -m),arm64),macOS_arm64,Linux_64-bit)
@@ -157,15 +152,7 @@ pprof:
 
 .PHONY: test_unit
 test_unit:
-	@$(GO) test $(shell go list ./... | \
-		grep -v "/generated" | \
-		grep -v "/signals" | \
-		grep -v "/tests" | \
-		grep -v "/version")
-
-.PHONY: test_race
-test_race:
-	@$(GO) test -race $(shell go list ./... | \
+	@$(GO) test -v -race $(shell go list ./... | \
 		grep -v "/generated" | \
 		grep -v "/signals" | \
 		grep -v "/tests" | \
@@ -173,30 +160,10 @@ test_race:
 
 .PHONY: test_e2e
 test_e2e:
-	@\
-	RSM_SELF_PORT=8887 \
-	RSM_MAIN_PORT=8888 \
-	GO=$(GO) \
-	TEST_PKG=$(TEST_PKG) \
-	TEST_RUN_PATTERN=$(TEST_RUN_PATTERN) \
-	TEST_TIMEOUT=$(TEST_TIMEOUT) \
-	timeout --signal SIGINT --preserve-status $(TEST_TIMEOUT) ./tests/run.sh
+	@$(GO) test -v -race ./tests/...
 
 .PHONY: test
-test: test_unit test_race test_e2e
-
-.PHONY: bench
-bench: vet setup manifests codegen build apply apply_testdata
-	@\
-	GO=$(GO) \
-	KUBECONFIG=$(KUBECONFIG) \
-	KUBECTL=$(KUBECTL) \
-	KUBESTATEMETRICS_CUSTOMRESOURCESTATE_CONFIG=$(KUBESTATEMETRICS_CUSTOMRESOURCESTATE_CONFIG) \
-	KUBESTATEMETRICS_DIR=$(KUBESTATEMETRICS_DIR) \
-	LOCAL_NAMESPACE=$(LOCAL_NAMESPACE) \
-	PROJECT_NAME=$(PROJECT_NAME) \
-	timeout --preserve-status $(BENCH_TIMEOUT) ./tests/bench/bench.sh
-	@make delete delete_testdata
+test: test_unit test_e2e
 
 ###########
 # Linting #
@@ -218,14 +185,14 @@ vale: .vale.ini $(MD_FILES)
 markdownfmt: $(MD_FILES)
 	@test -z "$(shell $(MARKDOWNFMT) -l $(MD_FILES))" || (echo "\033[0;31mThe following files need to be formatted with 'markdownfmt -w -gofmt':" $(shell $(MARKDOWNFMT) -l $(MD_FILES)) "\033[0m" && exit 1)
 
-markdownfmt-fix: $(MD_FILES)
+markdownfmt_fix: $(MD_FILES)
 	@for file in $(MD_FILES); do markdownfmt -w -gofmt $$file || exit 1; done
 
 .PHONY: lint_md
 lint_md: vale markdownfmt
 
 .PHONY: lint_md_fix
-lint_md_fix: vale markdownfmt-fix
+lint_md_fix: vale markdownfmt_fix
 
 golangci_lint: $(GO_FILES)
 	@$(GOLANGCI_LINT) run -c $(GOLANGCI_LINT_CONFIG)
@@ -233,14 +200,14 @@ golangci_lint: $(GO_FILES)
 golangci_lint_fix: $(GO_FILES)
 	@$(GOLANGCI_LINT) run --fix -c $(GOLANGCI_LINT_CONFIG)
 
-.PHONY: lint-go
-lint-go: golangci_lint
+.PHONY: lint_go
+lint_go: golangci_lint
 
-.PHONY: lint-go-fix
-lint-go-fix: golangci_lint_fix
+.PHONY: lint_go_fix
+lint_go_fix: golangci_lint_fix
 
 .PHONY: lint
-lint: lint_md lint-go
+lint: lint_md lint_go
 
-.PHONY: lint-fix
-lint-fix: lint_md_fix lint-go-fix
+.PHONY: lint_fix
+lint_fix: lint_md_fix lint_go_fix

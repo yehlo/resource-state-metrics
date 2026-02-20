@@ -23,9 +23,9 @@ import (
 	sync "sync"
 	time "time"
 
-	versioned "github.com/rexagod/resource-state-metrics/pkg/generated/clientset/versioned"
-	internalinterfaces "github.com/rexagod/resource-state-metrics/pkg/generated/informers/externalversions/internalinterfaces"
-	resourcestatemetrics "github.com/rexagod/resource-state-metrics/pkg/generated/informers/externalversions/resourcestatemetrics"
+	versioned "github.com/kubernetes-sigs/resource-state-metrics/pkg/generated/clientset/versioned"
+	internalinterfaces "github.com/kubernetes-sigs/resource-state-metrics/pkg/generated/informers/externalversions/internalinterfaces"
+	resourcestatemetrics "github.com/kubernetes-sigs/resource-state-metrics/pkg/generated/informers/externalversions/resourcestatemetrics"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

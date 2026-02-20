@@ -27,10 +27,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kubernetes-sigs/resource-state-metrics/external"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/expfmt"
-	"github.com/rexagod/resource-state-metrics/external"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 )

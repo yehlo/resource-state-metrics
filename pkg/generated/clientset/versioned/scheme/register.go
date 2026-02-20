@@ -19,7 +19,7 @@ limitations under the License.
 package scheme
 
 import (
-	resourcestatemetricsv1alpha1 "github.com/rexagod/resource-state-metrics/pkg/apis/resourcestatemetrics/v1alpha1"
+	resourcestatemetricsv1alpha1 "github.com/kubernetes-sigs/resource-state-metrics/pkg/apis/resourcestatemetrics/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

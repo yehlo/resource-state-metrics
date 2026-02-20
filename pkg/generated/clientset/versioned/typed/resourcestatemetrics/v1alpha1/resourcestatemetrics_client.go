@@ -21,8 +21,8 @@ package v1alpha1
 import (
 	http "net/http"
 
-	resourcestatemetricsv1alpha1 "github.com/rexagod/resource-state-metrics/pkg/apis/resourcestatemetrics/v1alpha1"
-	scheme "github.com/rexagod/resource-state-metrics/pkg/generated/clientset/versioned/scheme"
+	resourcestatemetricsv1alpha1 "github.com/kubernetes-sigs/resource-state-metrics/pkg/apis/resourcestatemetrics/v1alpha1"
+	scheme "github.com/kubernetes-sigs/resource-state-metrics/pkg/generated/clientset/versioned/scheme"
 	rest "k8s.io/client-go/rest"
 )
 

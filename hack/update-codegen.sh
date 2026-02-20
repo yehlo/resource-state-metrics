@@ -22,7 +22,7 @@ SCRIPT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 
 source "${SCRIPT_ROOT}/hack/kube_codegen.sh"
 
-THIS_PKG="github.com/rexagod/resource-state-metrics"
+THIS_PKG="github.com/kubernetes-sigs/resource-state-metrics"
 
 kube::codegen::gen_helpers \
     --boilerplate "${SCRIPT_ROOT}/hack/boilerplate.go.txt" \

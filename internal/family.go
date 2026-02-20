@@ -25,8 +25,8 @@ import (
 	"time"
 
 	"github.com/iancoleman/strcase"
+	"github.com/kubernetes-sigs/resource-state-metrics/pkg/resolver"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/rexagod/resource-state-metrics/pkg/resolver"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/klog/v2"
 )

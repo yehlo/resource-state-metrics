@@ -19,7 +19,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	resourcestatemetricsv1alpha1 "github.com/rexagod/resource-state-metrics/pkg/apis/resourcestatemetrics/v1alpha1"
+	resourcestatemetricsv1alpha1 "github.com/kubernetes-sigs/resource-state-metrics/pkg/apis/resourcestatemetrics/v1alpha1"
 	labels "k8s.io/apimachinery/pkg/labels"
 	listers "k8s.io/client-go/listers"
 	cache "k8s.io/client-go/tools/cache"

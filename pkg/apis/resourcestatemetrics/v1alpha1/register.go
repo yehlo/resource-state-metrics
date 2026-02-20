@@ -21,7 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/rexagod/resource-state-metrics/pkg/apis/resourcestatemetrics"
+	"github.com/kubernetes-sigs/resource-state-metrics/pkg/apis/resourcestatemetrics"
 )
 
 // SchemeGroupVersion is group version used to register these objects

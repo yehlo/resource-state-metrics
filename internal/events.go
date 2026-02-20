@@ -24,8 +24,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rexagod/resource-state-metrics/internal/version"
-	"github.com/rexagod/resource-state-metrics/pkg/apis/resourcestatemetrics/v1alpha1"
+	"github.com/kubernetes-sigs/resource-state-metrics/internal/version"
+	"github.com/kubernetes-sigs/resource-state-metrics/pkg/apis/resourcestatemetrics/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"

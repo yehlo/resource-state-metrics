@@ -19,4 +19,4 @@ limitations under the License.
 // +groupGoName=ResourceStateMetrics
 
 // Package v1alpha1 is the v1alpha1 version of the API.
-package v1alpha1 // import "github.com/rexagod/resource-state-metrics/pkg/apis/resourcestatemetrics/v1alpha1"
+package v1alpha1 // import "github.com/kubernetes-sigs/resource-state-metrics/pkg/apis/resourcestatemetrics/v1alpha1"

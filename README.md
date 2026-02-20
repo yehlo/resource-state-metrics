@@ -1,10 +1,6 @@
-#### STARTING `d2e3182`, THIS REPOSITORY HAS BEEN MOVED TO `kubernetes-sigs/resource-state-metrics`
-
-***
-
 # `resource-state-metrics`
 
-[![CI](https://github.com/rexagod/resource-state-metrics/actions/workflows/validations.yaml/badge.svg)](https://github.com/rexagod/resource-state-metrics/actions/workflows/validations.yaml) [![Go Report Card](https://goreportcard.com/badge/github.com/rexagod/resource-state-metrics)](https://goreportcard.com/report/github.com/rexagod/resource-state-metrics) [![Go Reference](https://pkg.go.dev/badge/github.com/rexagod/resource-state-metrics.svg)](https://pkg.go.dev/github.com/rexagod/resource-state-metrics)
+[![CI](https://github.com/kubernetes-sigs/resource-state-metrics/actions/workflows/validations.yaml/badge.svg)](https://github.com/kubernetes-sigs/resource-state-metrics/actions/workflows/validations.yaml) [![Go Report Card](https://goreportcard.com/badge/github.com/kubernetes-sigs/resource-state-metrics)](https://goreportcard.com/report/github.com/kubernetes-sigs/resource-state-metrics) [![Go Reference](https://pkg.go.dev/badge/github.com/kubernetes-sigs/resource-state-metrics.svg)](https://pkg.go.dev/github.com/kubernetes-sigs/resource-state-metrics)
 
 ## Summary
 

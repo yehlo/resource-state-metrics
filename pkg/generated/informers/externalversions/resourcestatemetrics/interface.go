@@ -19,8 +19,8 @@ limitations under the License.
 package resourcestatemetrics
 
 import (
-	internalinterfaces "github.com/rexagod/resource-state-metrics/pkg/generated/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/rexagod/resource-state-metrics/pkg/generated/informers/externalversions/resourcestatemetrics/v1alpha1"
+	internalinterfaces "github.com/kubernetes-sigs/resource-state-metrics/pkg/generated/informers/externalversions/internalinterfaces"
+	v1alpha1 "github.com/kubernetes-sigs/resource-state-metrics/pkg/generated/informers/externalversions/resourcestatemetrics/v1alpha1"
 )
 
 // Interface provides access to each of this group's versions.

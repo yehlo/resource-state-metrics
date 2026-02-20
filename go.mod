@@ -1,4 +1,4 @@
-module github.com/rexagod/resource-state-metrics
+module github.com/kubernetes-sigs/resource-state-metrics
 
 go 1.25.0
 

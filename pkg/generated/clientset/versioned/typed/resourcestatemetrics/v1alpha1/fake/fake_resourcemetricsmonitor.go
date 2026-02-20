@@ -19,8 +19,8 @@ limitations under the License.
 package fake
 
 import (
-	v1alpha1 "github.com/rexagod/resource-state-metrics/pkg/apis/resourcestatemetrics/v1alpha1"
-	resourcestatemetricsv1alpha1 "github.com/rexagod/resource-state-metrics/pkg/generated/clientset/versioned/typed/resourcestatemetrics/v1alpha1"
+	v1alpha1 "github.com/kubernetes-sigs/resource-state-metrics/pkg/apis/resourcestatemetrics/v1alpha1"
+	resourcestatemetricsv1alpha1 "github.com/kubernetes-sigs/resource-state-metrics/pkg/generated/clientset/versioned/typed/resourcestatemetrics/v1alpha1"
 	gentype "k8s.io/client-go/gentype"
 )
 

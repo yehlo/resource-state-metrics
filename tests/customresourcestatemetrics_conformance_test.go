@@ -43,9 +43,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kubernetes-sigs/resource-state-metrics/internal"
+	"github.com/kubernetes-sigs/resource-state-metrics/tests/framework"
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	"github.com/rexagod/resource-state-metrics/internal"
-	"github.com/rexagod/resource-state-metrics/tests/framework"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"

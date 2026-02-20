@@ -22,7 +22,7 @@ import (
 	fmt "fmt"
 	http "net/http"
 
-	resourcestatemetricsv1alpha1 "github.com/rexagod/resource-state-metrics/pkg/generated/clientset/versioned/typed/resourcestatemetrics/v1alpha1"
+	resourcestatemetricsv1alpha1 "github.com/kubernetes-sigs/resource-state-metrics/pkg/generated/clientset/versioned/typed/resourcestatemetrics/v1alpha1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
