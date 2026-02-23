@@ -1,6 +1,6 @@
 # `resource-state-metrics`
 
-[![CI](https://github.com/kubernetes-sigs/resource-state-metrics/actions/workflows/validations.yaml/badge.svg)](https://github.com/kubernetes-sigs/resource-state-metrics/actions/workflows/validations.yaml) [![Go Report Card](https://goreportcard.com/badge/github.com/kubernetes-sigs/resource-state-metrics)](https://goreportcard.com/report/github.com/kubernetes-sigs/resource-state-metrics) [![Go Reference](https://pkg.go.dev/badge/github.com/kubernetes-sigs/resource-state-metrics.svg)](https://pkg.go.dev/github.com/kubernetes-sigs/resource-state-metrics)
+[![CI](https://github.com/kubernetes-sigs/resource-state-metrics/actions/workflows/validations.yaml/badge.svg)](https://github.com/kubernetes-sigs/resource-state-metrics/actions/workflows/validations.yaml) [![Go Reference](https://pkg.go.dev/badge/github.com/kubernetes-sigs/resource-state-metrics.svg)](https://pkg.go.dev/github.com/kubernetes-sigs/resource-state-metrics)
 
 ## Summary
 
@@ -46,10 +46,16 @@ For more details, take a look at the [Makefile](Makefile) targets.
 - [X] [`s/stores/generators`](https://github.com/kubernetes/enhancements/pull/4811#discussion_r2121842302)
 - [X] https://github.com/rexagod/resource-state-metrics/issues/1
 - [ ] https://github.com/rexagod/resource-state-metrics/issues/2
-- [ ] https://github.com/rexagod/resource-state-metrics/issues/6
 - [ ] Dynamic admission control for `ResourceMetricsMonitor` CRD.
-- [ ] Consider adding charts, and use https://github.com/google/go-jsonnet to lint if so.
-- [ ] Register the repository on the K8s release machinery.
+
+#### Current TODO(s)
+
+- [ ] https://github.com/rexagod/resource-state-metrics/issues/6
 - [ ] Add golden rules covering all CRS constructs.
+
+#### Not on priority
+
+- [ ] Register the repository on the K8s release machinery.
+- [ ] Consider adding charts, and use https://github.com/google/go-jsonnet to lint if so.
 
 ###### [License](./LICENSE)
