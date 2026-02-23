@@ -43,6 +43,8 @@ jobs:
     steps:
       - name: Checkout the codebase
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
@@ -51,6 +53,8 @@ jobs:
         run: make setup
       - name: Run linter
         run: make lint
+      - name: Lint commits
+        run: pre-commit run gitlint-ci --hook-stage manual
   test-unit:
     needs: lint
     runs-on: ubuntu-latest

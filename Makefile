@@ -56,6 +56,9 @@ setup:
 	@$(GO) install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VERSION)
 	# Setup code-generator.
 	@$(GO) install k8s.io/code-generator/cmd/...@$(CODE_GENERATOR_VERSION)
+	# Setup pre-commit hooks.
+	@pipx install pre-commit >/dev/null
+	@pre-commit install --hook-type commit-msg >/dev/null
 
 ##############
 # Generating #
