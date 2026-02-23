@@ -10,7 +10,6 @@ on:
 
 env:
   GO_VERSION: 1.25
-  RUNNER_DEBUG: 0 # Re-define repository secrets to enable this. Note that this may leak sensitive data, so remove the workflow runs after debugging.
 
 jobs:
   vet:

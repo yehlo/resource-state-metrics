@@ -1,8 +1,6 @@
 ---
-name: Bug report
-about: Report a bug in resource-state-metrics
-labels: kind/bug
----
+
+## name: Bug report about: Report a bug in resource-state-metrics labels: kind/bug
 
 ## What happened?
 
@@ -12,7 +10,7 @@ labels: kind/bug
 
 ## How to reproduce
 
-<!-- Minimal steps or a `ResourceMetricsMonitor` configuration that reproduces the issue. -->
+<!-- Minimal steps with relevant configuration(s) that reproduce the issue. -->
 
 ## Environment
 
