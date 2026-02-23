@@ -2,6 +2,7 @@
 assets/
 resource-state-metrics
 vendor/
+.gitmessage
 tests/golden/metrics.txt
 
 # `pprof` artefacts

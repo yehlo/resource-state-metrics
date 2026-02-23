@@ -40,7 +40,7 @@ type configure interface {
 
 // configuration defines the structured representation of a YAML configuration.
 type configuration struct {
-	Stores []*StoreType `yaml:"generators" json:"generators"`
+	Stores []*StoreType `json:"generators" yaml:"generators"`
 }
 
 // configurer knows how to parse a YAML configuration.

@@ -1,3 +1,5 @@
+SHELL := /bin/bash
+
 # Variables are declared in the order in which they occur.
 ASSETS_DIR ?= assets
 BOILERPLATE_GO_COMPLIANT ?= hack/boilerplate.go.txt
@@ -76,6 +78,13 @@ setup:
 	# Setup pre-commit hooks.
 	@pipx install pre-commit >/dev/null
 	@pre-commit install --hook-type commit-msg >/dev/null
+	# Setup commit message template.
+	@$(MAKE) --no-print-directory -s .gitmessage
+	@git config commit.template .gitmessage
+
+.gitmessage: hack/check-conventional-commit.sh
+	@types=$$(grep 'ALLOWED_TYPES=' $< | cut -d'"' -f2 | tr '|' ' '); \
+	printf '\n\n# type(scope): subject\n#\n# Extended body\n#\n# Allowed types: %s' "$$types" > $@
 
 ##############
 # Generating #

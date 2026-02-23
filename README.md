@@ -45,8 +45,12 @@ For more details, take a look at the [Makefile](Makefile) targets.
 - [X] Add boilerplate headers automation.
 - [X] [`s/stores/generators`](https://github.com/kubernetes/enhancements/pull/4811#discussion_r2121842302)
 - [X] https://github.com/rexagod/resource-state-metrics/issues/1
-- [ ] https://github.com/rexagod/resource-state-metrics/issues/2
+- [ ] https://github.com/rexagod/resource-state-metrics/issues/2 (needs more research)
+  - [ ] Talk to Prom server to get an idea of relevant label-sets' cardinality?
+  - [ ] Use an offline-preferred approach with heuristics and internal context.
 - [ ] Dynamic admission control for `ResourceMetricsMonitor` CRD.
+  - [ ] Replace the file blob with a defined set of fields, or,
+  - [ ] `unmarshal` and validate the file, as is, dunno how good that looks in the long term, I guess this depends on the push for defined fields primarily and how much we want that.
 
 #### Current TODO(s)
 
