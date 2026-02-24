@@ -49,10 +49,14 @@ For more details, take a look at the [Makefile](Makefile) targets.
 - [X] https://github.com/rexagod/resource-state-metrics/issues/1
 - [X] https://github.com/rexagod/resource-state-metrics/issues/6
 - [X] Print controller logs in the CI.
+- [ ] Add golden rules covering all CRS constructs.
+
+#### Blocking GA
+
+- [ ] Respect and keep up will all relevant metric types that are supported in Prometheus' OpenMetrics implementation.
 - [ ] https://github.com/rexagod/resource-state-metrics/issues/2 (needs more research)
   - [ ] Talk to Prom server to get an idea of relevant label-sets' cardinality?
   - [ ] Use an offline-preferred approach with heuristics and internal context.
-- [ ] Add golden rules covering all CRS constructs.
 
 #### Not on priority
 

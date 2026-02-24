@@ -33,16 +33,20 @@ import (
 )
 
 const (
-	// metricTypeGauge represents the type of metric. This is pinned to `gauge` to avoid ingestion issues with different backends
-	// (Prometheus primarily) that may not recognize all metrics under the OpenMetrics spec. This also helps upkeep a more
-	// consistent configuration. Refer https://github.com/kubernetes/kube-state-metrics/pull/2270 for more details.
+	// metricTypeGauge represents the type of metric. This is pinned to `gauge`
+	// to avoid ingestion issues with different backends (see
+	// expfmt.MetricFamilyToOpenMetrics godoc) that may not recognize all metrics
+	// under the OpenMetrics spec. This also helps upkeep a more consistent
+	// configuration.
+	// Refer https://github.com/kubernetes/kube-state-metrics/pull/2270 for more details.
 	metricTypeGauge = "gauge"
-	// In convention with kube-state-metrics, we prefix all metrics with `kube_customresource_` to explicitly denote
-	// that these are custom resource user-generated metrics (and have no stability).
+	// In convention with kube-state-metrics, we prefix all metrics with
+	// `kube_customresource_` to explicitly denote that these are custom resource
+	// user-generated metrics (and have no stability).
 	kubeCustomResourcePrefix = "kube_customresource_"
 	// expandedValueSentinel is a key used in resolvedExpandedLabelSet to carry
-	// per-sample metric values when the value expression resolves to a list.
-	// The NUL byte cannot appear in a Prometheus label name.
+	// per-sample metric values when the value expression resolves to a list. The
+	// NUL byte cannot appear in a Prometheus label name.
 	expandedValueSentinel = "\x00"
 )
 
