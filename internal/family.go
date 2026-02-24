@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -39,6 +40,10 @@ const (
 	// In convention with kube-state-metrics, we prefix all metrics with `kube_customresource_` to explicitly denote
 	// that these are custom resource user-generated metrics (and have no stability).
 	kubeCustomResourcePrefix = "kube_customresource_"
+	// expandedValueSentinel is a key used in resolvedExpandedLabelSet to carry
+	// per-sample metric values when the value expression resolves to a list.
+	// The NUL byte cannot appear in a Prometheus label name.
+	expandedValueSentinel = "\x00"
 )
 
 // stringBuilderPool pools strings.Builder instances to reduce GC pressure
@@ -113,12 +118,35 @@ func (f *FamilyType) buildMetricString(unstructured *unstructured.Unstructured) 
 
 		resolvedLabelKeys, resolvedLabelValues, resolvedExpandedLabelSet := resolveLabels(metric, resolverInstance, unstructured.Object)
 
-		resolvedValue, found := resolverInstance.Resolve(metric.Value, unstructured.Object)[metric.Value]
+		resolvedValueMap := resolverInstance.Resolve(metric.Value, unstructured.Object)
+		resolvedValue, found := resolvedValueMap[metric.Value]
 		if !found {
-			logger.V(1).Error(fmt.Errorf("error resolving metric value %q", metric.Value), "skipping")
-			putBuilder(metricRawBuilder)
+			// The value expression may have returned a list. Collect indexed
+			// values (keys of the form "fieldParent#N") in order and store
+			// them under the sentinel so writeMetricSamples emits one sample
+			// per element, coordinated with any label expansion.
+			var expandedValues []string
+			for i := 0; ; i++ {
+				suffix := "#" + strconv.Itoa(i)
+				var match string
+				for k, v := range resolvedValueMap {
+					if strings.HasSuffix(k, suffix) {
+						match = v
+						break
+					}
+				}
+				if match == "" {
+					break
+				}
+				expandedValues = append(expandedValues, match)
+			}
+			if len(expandedValues) == 0 {
+				logger.V(1).Error(fmt.Errorf("error resolving metric value %q", metric.Value), "skipping")
+				putBuilder(metricRawBuilder)
 
-			continue
+				continue
+			}
+			resolvedExpandedLabelSet[expandedValueSentinel] = expandedValues
 		}
 
 		err = writeMetricSamples(metricRawBuilder, f.Name, unstructured, resolvedLabelKeys, resolvedLabelValues, resolvedExpandedLabelSet, resolvedValue, logger)
@@ -161,10 +189,10 @@ func resolveLabels(metric *MetricType, resolverInstance resolver.Resolver, obj m
 				// Check if key has a suffix that satisfies the regex: "#\d+".
 				// This is used to identify list values in way that's resolver-agnostic.
 				if regexp.MustCompile(`.+#\d+`).MatchString(k) {
-					key := k[:strings.LastIndex(k, "#")]
-					// If `o.spec.tags` is a list, the labelset will look like `metric_name{tags="tagX"}`,
-					// where the number of generated samples will be same as the length of the list.
-					resolvedExpandedLabelSet[key] = append(resolvedExpandedLabelSet[key], v)
+					// Use the user-specified label name as the expansion key so the
+					// generated metric carries e.g. `type="Ready"` rather than the
+					// internal field-parent token (e.g. `map="Ready"`).
+					resolvedExpandedLabelSet[sanitizeKey(label.Name)] = append(resolvedExpandedLabelSet[sanitizeKey(label.Name)], v)
 
 					continue
 				}
@@ -200,20 +228,45 @@ func sanitizeKey(s string) string {
 
 // writeMetricSamples writes single or expanded metric values based on label structure.
 func writeMetricSamples(builder *strings.Builder, name string, u *unstructured.Unstructured, keys, values []string, expanded map[string][]string, value string, logger klog.Logger) error {
+	// Extract per-sample values stored under the sentinel when the value
+	// expression resolved to a list. The sentinel is not a real label.
+	// NOTE that we do not want resolver-specific logic making its way into
+	// non-resolver-specific code, however, this is general enough that it can be
+	// reasonably justified as an implementation detail of how we handle value
+	// lists across resolvers.
+	expandedValues := expanded[expandedValueSentinel]
+	delete(expanded, expandedValueSentinel)
+
+	i := 0
 	writeMetric := func(k, v []string) error {
 		builder.WriteString(kubeCustomResourcePrefix + name)
+		currentValue := value
+		if i < len(expandedValues) {
+			currentValue = expandedValues[i]
+		}
+		i++
 
 		return writeMetricTo(
 			builder,
 			u.GroupVersionKind().Group,
 			u.GroupVersionKind().Version,
 			u.GroupVersionKind().Kind,
-			value,
+			currentValue,
 			k, v,
 		)
 	}
 	if len(expanded) == 0 {
-		return writeSingleSample(writeMetric, keys, values, logger)
+		if len(expandedValues) == 0 {
+			return writeSingleSample(writeMetric, keys, values, logger)
+		}
+		// Value-only expansion: one sample per expanded value, same label set.
+		for range expandedValues {
+			if err := writeSingleSample(writeMetric, keys, values, logger); err != nil {
+				return err
+			}
+		}
+
+		return nil
 	}
 
 	return writeExpandedSamples(writeMetric, keys, values, expanded, logger)

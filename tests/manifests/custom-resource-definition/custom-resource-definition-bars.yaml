@@ -77,5 +77,18 @@ spec:
                       type: object
                       additionalProperties:
                         type: string
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                        enum: ["True", "False", "Unknown"]
+                      reason:
+                        type: string
+                    required: ["type", "status"]
               required: ["appId", "language", "environmentType"]
           required: ["spec"]

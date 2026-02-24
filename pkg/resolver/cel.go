@@ -178,7 +178,21 @@ func (cr *CELResolver) addCostLogging(logger klog.Logger, evalDetails *cel.EvalD
 }
 
 func (cr *CELResolver) processResult(query string, out ref.Val) map[string]string {
-	resolvedFieldParent := query[strings.LastIndex(query, ".")+1:]
+	// Derive a stable key prefix for list results. Strip from the first '('
+	// (and the method name immediately before it) so that dots inside
+	// arguments never corrupt the prefix. For example:
+	//   o.spec.conditions.map(c, c.type)           → "conditions"
+	//   o.spec.items.filter(x, ...).map(c, c.type) → "items"
+	// Using the first '(' is correct: the result always belongs to the field
+	// being iterated, regardless of how many chained calls follow.
+	base := query
+	if idx := strings.IndexByte(query, '('); idx > 0 {
+		base = query[:idx] // drop arguments: "o.spec.conditions.map"
+		if dot := strings.LastIndex(base, "."); dot >= 0 {
+			base = base[:dot] // drop method name: "o.spec.conditions"
+		}
+	}
+	resolvedFieldParent := base[strings.LastIndex(base, ".")+1:]
 	switch out.Type() {
 	case types.BoolType, types.DoubleType, types.IntType, types.StringType, types.UintType:
 		return map[string]string{query: fmt.Sprintf("%v", out.Value())}
@@ -197,13 +211,23 @@ func (cr *CELResolver) processResult(query string, out ref.Val) map[string]strin
 
 func (cr *CELResolver) resolveList(out *ref.Val, fieldParent string) map[string]string {
 	m := map[string]string{}
-	outList, ok := (*out).Value().([]interface{})
-	if !ok {
-		cr.logger.V(1).Error(errors.New("error casting output to []interface{}"), "ignoring resolution for query")
+
+	switch v := (*out).Value().(type) {
+	case []interface{}:
+		// Native Go slice; a list field from an unstructured object.
+		cr.resolveListInner(v, m, fieldParent)
+	case []ref.Val:
+		// CEL-typed list; the result of a .map() or .filter() call.
+		native := make([]interface{}, len(v))
+		for i, elem := range v {
+			native[i] = elem.Value()
+		}
+		cr.resolveListInner(native, m, fieldParent)
+	default:
+		cr.logger.V(1).Error(fmt.Errorf("unsupported list value type %T", (*out).Value()), "ignoring resolution for query")
 
 		return nil
 	}
-	cr.resolveListInner(outList, m, fieldParent)
 
 	return m
 }
@@ -224,7 +248,7 @@ func (cr *CELResolver) resolveMap(out *ref.Val) map[string]string {
 func (cr *CELResolver) resolveListInner(list []interface{}, out map[string]string, fieldParent string) {
 	for i, v := range list {
 		switch v := v.(type) {
-		case string, int, uint, float64, bool:
+		case string, int, int64, uint, uint64, float64, bool:
 			out[fieldParent+"#"+strconv.Itoa(i)] = fmt.Sprintf("%v", v)
 		case []interface{}:
 			cr.resolveListInner(v, out, fieldParent)

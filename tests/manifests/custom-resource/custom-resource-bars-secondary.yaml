@@ -1,0 +1,25 @@
+apiVersion: samplecontroller.k8s.io/v1beta1
+kind: Bar
+metadata:
+  name: test-sample-secondary
+  namespace: default
+  labels:
+    foo: "0"
+    bar: "0"
+spec:
+  appId: test-sample-secondary
+  language: csharp
+  os: linux
+  instanceSize: small
+  environmentType: dev
+  replicas: 1
+  conditions:
+    - type: Degraded
+      status: "True"
+      reason: ConfigError
+    - type: Progressing
+      status: "True"
+      reason: Reconciling
+    - type: Ready
+      status: "False"
+      reason: NotReady

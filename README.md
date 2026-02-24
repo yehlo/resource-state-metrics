@@ -56,10 +56,11 @@ For more details, take a look at the [Makefile](Makefile) targets.
 
 - [ ] https://github.com/rexagod/resource-state-metrics/issues/6
 - [ ] Add golden rules covering all CRS constructs.
+- [ ] Print controller logs in the CI.
 
 #### Not on priority
 
 - [ ] Register the repository on the K8s release machinery.
-- [ ] Consider adding charts, and use https://github.com/google/go-jsonnet to lint if so.
+- [ ] Consider adding charts (and lint them), 
 
 ###### [License](./LICENSE)

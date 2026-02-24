@@ -1,0 +1,43 @@
+---
+name: resourcemetricsmonitor-bars-conditions
+description: >
+  Tests that a list-valued CEL expression on spec.conditions emits one
+  metric sample per condition per Bar instance, with the user-specified
+  label names used as label keys and per-element values as metric values.
+  Conditions are defined in alphabetical order so the CEL output order
+  matches the sort order applied during label expansion, preserving the
+  correct label/value correspondence.
+in:
+  apiVersion: resource-state-metrics.instrumentation.k8s-sigs.io/v1alpha1
+  kind: ResourceMetricsMonitor
+  metadata:
+    name: resourcemetricsmonitor-bars-conditions
+    namespace: default
+  spec:
+    configuration: |
+      generators:
+        - group: "samplecontroller.k8s.io"
+          version: "v1beta1"
+          kind: "Bar"
+          resource: "bars"
+          families:
+            - name: "bars_conditions"
+              help: "Condition status for each Bar instance"
+              metrics:
+                - resolver: "cel"
+                  labels:
+                    - name: "name"
+                      value: "o.metadata.name"
+                    - name: "type"
+                      value: "o.spec.conditions.map(c, c.type)"
+                  value: "o.spec.conditions.map(c, int(c.status == 'True' ? 1 : 0))"
+out:
+  metrics:
+    - '# HELP kube_customresource_bars_conditions Condition status for each Bar instance'
+    - '# TYPE kube_customresource_bars_conditions gauge'
+    - 'kube_customresource_bars_conditions{name="test-sample",type="Degraded",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 0.000000'
+    - 'kube_customresource_bars_conditions{name="test-sample",type="Progressing",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 0.000000'
+    - 'kube_customresource_bars_conditions{name="test-sample",type="Ready",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
+    - 'kube_customresource_bars_conditions{name="test-sample-secondary",type="Degraded",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
+    - 'kube_customresource_bars_conditions{name="test-sample-secondary",type="Progressing",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
+    - 'kube_customresource_bars_conditions{name="test-sample-secondary",type="Ready",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 0.000000'
