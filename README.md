@@ -30,7 +30,28 @@ For more details, take a look at the [Makefile](Makefile) targets.
 
 ## TODO
 
-#### Planned
+#### Spikes (in the following order; if not empty, these take precedence over in-progress items)
+
+- [ ] Respect and keep up will all relevant metric types that are supported in Prometheus' OpenMetrics implementation.
+
+#### In-progress (in the following order)
+
+- [ ] https://github.com/rexagod/resource-state-metrics/issues/2 (needs more research)
+  - [ ] Talk to Prom server to get an idea of relevant label-sets' cardinality?
+  - [ ] Use an offline-preferred approach with heuristics and internal context.
+  - [ ] This will need to be reflected in the resource status.
+
+#### Planned (in the following order)
+
+- [ ] s/dependabot/renovate: Problems with app installation, talk to #github-management.
+- [ ] Dynamic admission control for `ResourceMetricsMonitor` CRD.
+  - [ ] Replace the file blob with a defined set of fields, or,
+  - [ ] `unmarshal` and validate the file, as is, dunno how good that looks in the long term, I guess this depends on the push for defined fields primarily and how much we want that.
+- [ ] Add golden rules covering all CRS constructs.
+- [ ] Register the repository on the K8s release machinery, also integrate the bot.
+- [ ] Consider adding charts (and lint them),
+
+#### Done
 
 - [X] CEL expressions for metric generation (or [*unstructured.Unstructured](https://github.com/kubernetes/apimachinery/issues/181), if that suffices).
 - [X] Conformance test(s) for Kube-State-Metrics' [Custom Resource State API](https://github.com/kubernetes/kube-state-metrics/blob/main/docs/metrics/extend/customresourcestate-metrics.md#multiple-metricskitchen-sink).
@@ -49,21 +70,5 @@ For more details, take a look at the [Makefile](Makefile) targets.
 - [X] https://github.com/rexagod/resource-state-metrics/issues/1
 - [X] https://github.com/rexagod/resource-state-metrics/issues/6
 - [X] Print controller logs in the CI.
-- [ ] Add golden rules covering all CRS constructs.
-
-#### Blocking GA
-
-- [ ] Respect and keep up will all relevant metric types that are supported in Prometheus' OpenMetrics implementation.
-- [ ] https://github.com/rexagod/resource-state-metrics/issues/2 (needs more research)
-  - [ ] Talk to Prom server to get an idea of relevant label-sets' cardinality?
-  - [ ] Use an offline-preferred approach with heuristics and internal context.
-
-#### Not on priority
-
-- [ ] Register the repository on the K8s release machinery.
-- [ ] Consider adding charts (and lint them),
-- [ ] Dynamic admission control for `ResourceMetricsMonitor` CRD.
-  - [ ] Replace the file blob with a defined set of fields, or,
-  - [ ] `unmarshal` and validate the file, as is, dunno how good that looks in the long term, I guess this depends on the push for defined fields primarily and how much we want that.
 
 ###### [License](./LICENSE)

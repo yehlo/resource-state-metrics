@@ -134,14 +134,14 @@ func (s *mainServer) build(ctx context.Context, client kubernetes.Interface, _ p
 	// Handle the metrics path.
 	var binarySemaphore sync.RWMutex
 	metricsHandler := func(generator func(w http.ResponseWriter)) http.HandlerFunc {
-		return func(w http.ResponseWriter, r *http.Request) {
+		return func(writer http.ResponseWriter, request *http.Request) {
 			binarySemaphore.RLock()
 			defer binarySemaphore.RUnlock()
 
 			// * The focus here is textual-only, in-line with a gauge-only philosophy.
 			// * Prometheus may support `info`, `stateset`, `gaugehistogram`, etc.
 			// OpenMetrics types in the future, but the focus here will remain the
-			// same, i.e., we'll only ever push `guage` metrics, and show the same in
+			// same, i.e., we'll only ever push `gauge` metrics, and show the same in
 			// their metadata.
 			// * NOTE By opting-into OpenMetrics below, we are contractually
 			// obligated to support expfmt.MetricFamilyToOpenMetrics conventions at
@@ -150,14 +150,14 @@ func (s *mainServer) build(ctx context.Context, client kubernetes.Interface, _ p
 			// Refer: https://pkg.go.dev/github.com/prometheus/common@v0.67.5/expfmt#MetricFamilyToOpenMetrics
 			// * Negotiation can set content type to Protobuf as well, but we will
 			// ignore that, and always respond with an OpenMetrics text format.
-			contentType := expfmt.NegotiateIncludingOpenMetrics(r.Header)
+			contentType := expfmt.NegotiateIncludingOpenMetrics(request.Header)
 			if contentType.FormatType() != expfmt.TypeOpenMetrics {
 				contentType = expfmt.NewFormat(expfmt.TypeTextPlain)
 			}
-			w.Header().Set("Content-Type", string(contentType))
+			writer.Header().Set("Content-Type", string(contentType))
 
 			// Generate metrics.
-			generator(w)
+			generator(writer)
 		}
 	}
 	mux.Handle("/metrics", promhttp.InstrumentHandlerDuration(s.requestsDurationVec, metricsHandler(func(w http.ResponseWriter) {
