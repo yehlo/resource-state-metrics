@@ -118,6 +118,10 @@ linters:
       statements: 85
     lll:
       line-length: 200
+    forbidigo:
+      forbid:
+        - pattern: '^(klog|logger)\.(Info|InfoS)$'
+          msg: "use .V(n).Info() to attach a verbosity level; bare .Info() always logs regardless of -v"
     perfsprint:
       strconcat: false
     varnamelen:

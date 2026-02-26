@@ -20,6 +20,7 @@ import (
 	"io"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/klog/v2"
 	metricsstore "k8s.io/kube-state-metrics/v2/pkg/metrics_store"
 )
 
@@ -47,14 +48,17 @@ func (ct *collectorsType) SetKubeConfig(kubeconfig string) *collectorsType {
 }
 
 func (ct *collectorsType) Register(c collectors) {
+
 	ct.collectors = append(ct.collectors, c)
 }
 
 func (ct *collectorsType) Build(ctx context.Context) {
+	logger := klog.FromContext(ctx)
 	for _, c := range ct.collectors {
 		ct.builtCollectors = append(ct.builtCollectors, c.BuildCollector(ctx, ct.kubeconfig))
 		c.Register()
 	}
+	logger.V(0).Info("Registered external collectors", "collectors", ct.collectors)
 }
 
 func (ct *collectorsType) Write(w io.Writer) {

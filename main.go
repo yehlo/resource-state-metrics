@@ -68,7 +68,7 @@ func main() {
 
 	// Quit if only version flag is set.
 	if *options.Version && flag.NFlag() == 1 {
-		logger.Info("Version", "version", v.Version)
+		logger.V(0).Info("Version", "version", v.Version)
 		os.Exit(0)
 	}
 
