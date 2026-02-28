@@ -30,9 +30,23 @@ in:
                     - name: "language"
                       value: "spec.language"
                   value: "1"
-out:
-  metrics:
-    - '# HELP kube_customresource_cardinality_high_limit_test High limit test - should generate all metrics'
-    - '# TYPE kube_customresource_cardinality_high_limit_test gauge'
-    - 'kube_customresource_cardinality_high_limit_test{language="csharp",name="test-sample",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
-    - 'kube_customresource_cardinality_high_limit_test{language="csharp",name="test-sample-secondary",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
+
+metrics:
+  - '# HELP kube_customresource_cardinality_high_limit_test High limit test - should generate all metrics'
+  - '# TYPE kube_customresource_cardinality_high_limit_test gauge'
+  - 'kube_customresource_cardinality_high_limit_test{language="csharp",name="test-sample",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
+  - 'kube_customresource_cardinality_high_limit_test{language="csharp",name="test-sample-secondary",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
+status:
+  cardinality:
+    total: 2
+    thresholdsExceeded: false
+  conditions:
+    - type: Processed
+      status: "True"
+      reason: EventHandlerSucceeded
+    - type: CardinalityCutoff
+      status: "False"
+      reason: CardinalityOK
+    - type: CardinalityWarning
+      status: "False"
+      reason: CardinalityOK

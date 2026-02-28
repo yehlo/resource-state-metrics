@@ -31,11 +31,25 @@ in:
                     - name: "language"
                       value: "spec.language"
                   value: "metadata.labels.foo"
-out:
-  metrics:
-    - '# HELP kube_customresource_bars_information Information about each Bar instance'
-    - '# TYPE kube_customresource_bars_information gauge'
-    - 'kube_customresource_bars_information{name="test-sample",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 2.000000'
-    - 'kube_customresource_bars_information{name="test-sample-secondary",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 0.000000'
-    - 'kube_customresource_bars_information{environment_type="dev",language="csharp",name="test-sample",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
-    - 'kube_customresource_bars_information{environment_type="dev",language="csharp",name="test-sample-secondary",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 0.000000'
+
+metrics:
+  - '# HELP kube_customresource_bars_information Information about each Bar instance'
+  - '# TYPE kube_customresource_bars_information gauge'
+  - 'kube_customresource_bars_information{name="test-sample",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 2.000000'
+  - 'kube_customresource_bars_information{name="test-sample-secondary",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 0.000000'
+  - 'kube_customresource_bars_information{environment_type="dev",language="csharp",name="test-sample",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
+  - 'kube_customresource_bars_information{environment_type="dev",language="csharp",name="test-sample-secondary",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 0.000000'
+status:
+  cardinality:
+    total: 4
+    thresholdsExceeded: false
+  conditions:
+    - type: Processed
+      status: "True"
+      reason: EventHandlerSucceeded
+    - type: CardinalityCutoff
+      status: "False"
+      reason: CardinalityOK
+    - type: CardinalityWarning
+      status: "False"
+      reason: CardinalityOK

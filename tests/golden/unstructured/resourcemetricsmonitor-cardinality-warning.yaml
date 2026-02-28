@@ -1,0 +1,55 @@
+---
+name: resourcemetricsmonitor-cardinality-warning
+description: >
+  Test cardinality warning threshold. This RMM generates 4 samples with a
+  cardinalityLimit of 5, putting it at exactly 80% (4/5 = 0.80) which triggers
+  the CardinalityWarning condition but not the cutoff.
+in:
+  apiVersion: resource-state-metrics.instrumentation.k8s-sigs.io/v1alpha1
+  kind: ResourceMetricsMonitor
+  metadata:
+    name: resourcemetricsmonitor-cardinality-warning
+    namespace: default
+  spec:
+    configuration: |
+      generators:
+        - group: "samplecontroller.k8s.io"
+          version: "v1beta1"
+          kind: "Bar"
+          resource: "bars"
+          cardinalityLimit: 5
+          families:
+            - name: "cardinality_warning_test"
+              help: "Warning threshold test - 80% of limit"
+              metrics:
+                - labels:
+                    - name: "name"
+                      value: "metadata.name"
+                  value: "1"
+                - labels:
+                    - name: "name"
+                      value: "metadata.name"
+                    - name: "language"
+                      value: "spec.language"
+                  value: "1"
+metrics:
+  - '# HELP kube_customresource_cardinality_warning_test Warning threshold test - 80% of limit'
+  - '# TYPE kube_customresource_cardinality_warning_test gauge'
+  - 'kube_customresource_cardinality_warning_test{name="test-sample",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
+  - 'kube_customresource_cardinality_warning_test{name="test-sample-secondary",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
+  - 'kube_customresource_cardinality_warning_test{language="csharp",name="test-sample",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
+  - 'kube_customresource_cardinality_warning_test{language="csharp",name="test-sample-secondary",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
+status:
+  cardinality:
+    total: 4
+    thresholdsExceeded: false
+  conditions:
+    - type: Processed
+      status: "True"
+      reason: EventHandlerSucceeded
+    - type: CardinalityCutoff
+      status: "False"
+      reason: CardinalityOK
+    - type: CardinalityWarning
+      status: "True"
+      reason: CardinalityWarning

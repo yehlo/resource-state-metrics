@@ -121,7 +121,6 @@ generators:
 	// Wait for controller to process resources
 	time.Sleep(5 * framework.LongTimeInterval)
 
-	// Run subtests
 	t.Run("TelemetryMetrics", func(t *testing.T) {
 		testTelemetryMetrics(t, f)
 	})
@@ -137,7 +136,6 @@ generators:
 func testTelemetryMetrics(t *testing.T, f *framework.Framework) {
 	t.Helper()
 
-	// Fetch telemetry metrics from self port
 	selfPort := *f.Options.SelfPort
 	telemetryURL := fmt.Sprintf("http://127.0.0.1:%d/metrics", selfPort)
 
@@ -154,7 +152,6 @@ func testTelemetryMetrics(t *testing.T, f *framework.Framework) {
 
 	metricsOutput := string(body)
 
-	// Test cases for cardinality telemetry metrics
 	testCases := []struct {
 		name         string
 		metricPrefix string
@@ -195,14 +192,12 @@ func testTelemetryMetrics(t *testing.T, f *framework.Framework) {
 		})
 	}
 
-	// Verify cardinality values are valid
 	t.Run("cardinality values are valid", func(t *testing.T) {
 		for line := range strings.SplitSeq(metricsOutput, "\n") {
 			if strings.HasPrefix(line, "resource_state_metrics_") && strings.Contains(line, "cardinality") {
 				if strings.HasPrefix(line, "#") {
-					continue // Skip comments
+					continue
 				}
-				// Check that the line contains a valid metric value
 				if !strings.Contains(line, " ") {
 					continue
 				}
@@ -211,7 +206,6 @@ func testTelemetryMetrics(t *testing.T, f *framework.Framework) {
 		}
 	})
 
-	// Test that cardinality_exceeded_total counter type declaration exists (even if no samples)
 	t.Run("cardinality_exceeded_total metric type exists", func(t *testing.T) {
 		if !strings.Contains(metricsOutput, "# TYPE resource_state_metrics_cardinality_exceeded_total counter") {
 			t.Logf("cardinality_exceeded_total metric type declaration not found (this is expected if no thresholds were exceeded)")
@@ -253,7 +247,6 @@ func testStatusUpdate(ctx context.Context, t *testing.T, f *framework.Framework)
 		t.Logf("Cardinality status not yet populated (this may be expected in some test scenarios)")
 	}
 
-	// Check conditions
 	for _, cond := range updatedRMM.Status.Conditions {
 		t.Logf("Condition: Type=%s, Status=%s, Reason=%s", cond.Type, cond.Status, cond.Reason)
 	}

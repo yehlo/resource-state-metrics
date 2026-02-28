@@ -206,12 +206,11 @@ func GetGoldenRuleFiles(resolverType []internal.ResolverType) []string {
 // GoldenRule defines the structure of a golden rule for testing metric generation.
 // Every field is required; no omitempty allowed, to ensure the test is fully specified.
 type GoldenRule struct {
-	Name        string                     `yaml:"name"`
-	Description string                     `yaml:"description"`
-	In          *unstructured.Unstructured `yaml:"in"` // In is resource-agnostic to accommodate for any future resources introduced in RSM.
-	Out         struct {
-		Metrics []string `yaml:"metrics"`
-	} `yaml:"out"`
+	Name        string                                 `yaml:"name"`
+	Description string                                 `yaml:"description"`
+	In          *unstructured.Unstructured             `yaml:"in"` // In is resource-agnostic to accommodate for any future resources introduced in RSM.
+	Metrics     []string                               `yaml:"metrics"`
+	Status      *v1alpha1.ResourceMetricsMonitorStatus `yaml:"status"`
 }
 
 // GoldenRuleFromYAML loads a golden rule from a YAML file.

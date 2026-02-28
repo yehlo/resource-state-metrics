@@ -25,9 +25,23 @@ in:
                     - name: "name"
                       value: "metadata.name"
                   value: "1"
-out:
-  metrics:
-    - '# HELP kube_customresource_cardinality_test_basic Basic cardinality test metric'
-    - '# TYPE kube_customresource_cardinality_test_basic gauge'
-    - 'kube_customresource_cardinality_test_basic{name="test-sample",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
-    - 'kube_customresource_cardinality_test_basic{name="test-sample-secondary",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
+
+metrics:
+  - '# HELP kube_customresource_cardinality_test_basic Basic cardinality test metric'
+  - '# TYPE kube_customresource_cardinality_test_basic gauge'
+  - 'kube_customresource_cardinality_test_basic{name="test-sample",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
+  - 'kube_customresource_cardinality_test_basic{name="test-sample-secondary",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
+status:
+  cardinality:
+    total: 2
+    thresholdsExceeded: false
+  conditions:
+    - type: Processed
+      status: "True"
+      reason: EventHandlerSucceeded
+    - type: CardinalityCutoff
+      status: "False"
+      reason: CardinalityOK
+    - type: CardinalityWarning
+      status: "False"
+      reason: CardinalityOK

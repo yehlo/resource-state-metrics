@@ -26,13 +26,27 @@ in:
                     - name: "type"
                       value: "o.spec.conditions.map(c, c.type)"
                   value: "o.spec.conditions.map(c, int(c.status == 'True' ? 1 : 0))"
-out:
-  metrics:
-    - '# HELP kube_customresource_bars_conditions Condition status for each Bar instance'
-    - '# TYPE kube_customresource_bars_conditions gauge'
-    - 'kube_customresource_bars_conditions{name="test-sample",type="Degraded",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 0.000000'
-    - 'kube_customresource_bars_conditions{name="test-sample",type="Progressing",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 0.000000'
-    - 'kube_customresource_bars_conditions{name="test-sample",type="Ready",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
-    - 'kube_customresource_bars_conditions{name="test-sample-secondary",type="Degraded",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
-    - 'kube_customresource_bars_conditions{name="test-sample-secondary",type="Progressing",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
-    - 'kube_customresource_bars_conditions{name="test-sample-secondary",type="Ready",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 0.000000'
+
+metrics:
+  - '# HELP kube_customresource_bars_conditions Condition status for each Bar instance'
+  - '# TYPE kube_customresource_bars_conditions gauge'
+  - 'kube_customresource_bars_conditions{name="test-sample",type="Degraded",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 0.000000'
+  - 'kube_customresource_bars_conditions{name="test-sample",type="Progressing",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 0.000000'
+  - 'kube_customresource_bars_conditions{name="test-sample",type="Ready",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
+  - 'kube_customresource_bars_conditions{name="test-sample-secondary",type="Degraded",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
+  - 'kube_customresource_bars_conditions{name="test-sample-secondary",type="Progressing",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
+  - 'kube_customresource_bars_conditions{name="test-sample-secondary",type="Ready",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 0.000000'
+status:
+  cardinality:
+    total: 6
+    thresholdsExceeded: false
+  conditions:
+    - type: Processed
+      status: "True"
+      reason: EventHandlerSucceeded
+    - type: CardinalityCutoff
+      status: "False"
+      reason: CardinalityOK
+    - type: CardinalityWarning
+      status: "False"
+      reason: CardinalityOK

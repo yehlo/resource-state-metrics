@@ -37,7 +37,6 @@ For more details, take a look at the [Makefile](Makefile) targets.
 ##### GA
 
 - [ ] Typed spec instead of the YAML blob currently used in the `ResourceMetricsMonitor` CRD.
-- [ ] Support testing status sub-resource in e2e tests (`.out`?).
 - [ ] [`Starlark`](https://github.com/google/starlark-go) resolver (for more demanding use-cases)
 
 ##### Post-GA
@@ -74,5 +73,6 @@ For more details, take a look at the [Makefile](Makefile) targets.
   - [X] ~~Talk to Prom server to get an idea of relevant label-sets' cardinality?~~
   - [X] Use an offline-preferred approach with heuristics and internal context?
   - [X] This will need to be reflected in the resource status (and tested outside of golden rules).
+- [X] Support testing status sub-resource in e2e tests (`.out`?).
 
 ###### [License](./LICENSE)

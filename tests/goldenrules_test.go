@@ -42,9 +42,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/kubernetes-sigs/resource-state-metrics/internal"
+	"github.com/kubernetes-sigs/resource-state-metrics/pkg/apis/resourcestatemetrics/v1alpha1"
 	"github.com/kubernetes-sigs/resource-state-metrics/tests/framework"
 	"github.com/prometheus/client_golang/prometheus/testutil"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -252,12 +256,41 @@ func testGoldenRule(ctx context.Context, t *testing.T, f *framework.Framework, f
 	// Wait for controller to process resources and reflectors to sync
 	time.Sleep(5 * framework.LongTimeInterval)
 
-	goldenRuleOutMetrics := goldenRule.Out.Metrics
-	if len(goldenRuleOutMetrics) == 0 {
-		panic("Golden rule has no expected output metrics defined")
+	if len(goldenRule.Metrics) == 0 {
+		t.Fatalf("Golden rule has no expected output metrics defined")
+	}
+	validateMetricsOutput(t, f, goldenRule.Metrics)
+
+	if goldenRule.Status == nil {
+		t.Fatalf("Golden rule has no expected status defined")
+	}
+	validateStatusOutput(ctx, t, f, goldenRule)
+}
+
+// validateStatusOutput validates the RMM status after reconciliation using cmp.Diff.
+func validateStatusOutput(ctx context.Context, t *testing.T, f *framework.Framework, goldenRule *framework.GoldenRule) {
+	t.Helper()
+
+	rmm, err := f.WaitForRMMProcessed(ctx, goldenRule.In.GetNamespace(), goldenRule.In.GetName(), 10*time.Second)
+	if err != nil {
+		t.Fatalf("Failed to wait for RMM to be processed: %v", err)
 	}
 
-	expectedMetrics := strings.Join(goldenRuleOutMetrics, "\n") + "\n"
+	opts := cmp.Options{
+		cmpopts.IgnoreFields(v1alpha1.CardinalityStatus{}, "PerStore", "PerFamily", "CutoffFamilies", "LastUpdated"),
+		cmpopts.IgnoreFields(metav1.Condition{}, "LastTransitionTime", "ObservedGeneration", "Message"),
+	}
+
+	if diff := cmp.Diff(goldenRule.Status, &rmm.Status, opts); diff != "" {
+		t.Errorf("Status mismatch (-expected +actual):\n%s", diff)
+	}
+}
+
+// validateMetricsOutput validates that the scraped metrics match expected output.
+func validateMetricsOutput(t *testing.T, f *framework.Framework, expectedMetricLines []string) {
+	t.Helper()
+
+	expectedMetrics := strings.Join(expectedMetricLines, "\n") + "\n"
 	port := *f.Options.MainPort
 	url := fmt.Sprintf("http://127.0.0.1:%d/metrics", port)
 
@@ -276,7 +309,5 @@ func testGoldenRule(ctx context.Context, t *testing.T, f *framework.Framework, f
 
 	if err := testutil.ScrapeAndCompare(url, strings.NewReader(expectedMetrics), familyNames...); err != nil {
 		t.Errorf("Metric comparison failed: %v", err)
-
-		return
 	}
 }

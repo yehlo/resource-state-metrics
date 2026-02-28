@@ -38,10 +38,24 @@ in:
                     - name: "name"
                       value: "metadata.name"
                   value: "1"
-out:
-  metrics:
+
+metrics:
     # The no-limit family should have all metrics
-    - '# HELP kube_customresource_cardinality_no_limit_family No limit family - should generate all metrics'
-    - '# TYPE kube_customresource_cardinality_no_limit_family gauge'
-    - 'kube_customresource_cardinality_no_limit_family{name="test-sample",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
-    - 'kube_customresource_cardinality_no_limit_family{name="test-sample-secondary",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
+  - '# HELP kube_customresource_cardinality_no_limit_family No limit family - should generate all metrics'
+  - '# TYPE kube_customresource_cardinality_no_limit_family gauge'
+  - 'kube_customresource_cardinality_no_limit_family{name="test-sample",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
+  - 'kube_customresource_cardinality_no_limit_family{name="test-sample-secondary",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
+status:
+  cardinality:
+    total: 3
+    thresholdsExceeded: true
+  conditions:
+    - type: Processed
+      status: "True"
+      reason: EventHandlerSucceeded
+    - type: CardinalityCutoff
+      status: "True"
+      reason: CardinalityCutoff
+    - type: CardinalityWarning
+      status: "False"
+      reason: CardinalityOK
