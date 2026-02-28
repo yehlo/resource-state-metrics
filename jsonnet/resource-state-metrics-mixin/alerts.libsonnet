@@ -130,6 +130,82 @@
               description: 'The ResourceMetricsMonitor {{ $labels.namespace }}/{{ $labels.name }} is failing more than 50%% of event processing attempts. Check the monitor configuration and target resource availability.',
             },
           },
+          {
+            alert: 'ResourceStateMetricsCardinalityExceeded',
+            expr: |||
+              sum by (%(clusterLabel)s, namespace, name) (
+                increase(resource_state_metrics_cardinality_exceeded_total{%(resourceStateMetricsSelector)s}[15m])
+              ) > 0
+            ||| % $._config,
+            'for': '5m',
+            labels: {
+              severity: 'warning',
+            },
+            annotations: {
+              summary: 'A ResourceMetricsMonitor has exceeded cardinality limits.',
+              description: 'The ResourceMetricsMonitor {{ $labels.namespace }}/{{ $labels.name }} has exceeded its configured cardinality thresholds. Metric generation may be cut off. Review the configuration to reduce label cardinality.',
+            },
+          },
+          {
+            alert: 'ResourceStateMetricsCardinalityApproachingLimit',
+            expr: |||
+              (
+                resource_state_metrics_resource_cardinality{%(resourceStateMetricsSelector)s}
+                /
+                resource_state_metrics_resource_cardinality_limit{%(resourceStateMetricsSelector)s}
+              ) > 0.8
+              and
+              resource_state_metrics_resource_cardinality_limit{%(resourceStateMetricsSelector)s} > 0
+            ||| % $._config,
+            'for': '15m',
+            labels: {
+              severity: 'warning',
+            },
+            annotations: {
+              summary: 'A ResourceMetricsMonitor is approaching its cardinality limit.',
+              description: 'The ResourceMetricsMonitor {{ $labels.namespace }}/{{ $labels.name }} is at {{ $value | humanizePercentage }} of its configured cardinality limit. Consider increasing the limit or reducing label cardinality before metrics are cut off.',
+            },
+          },
+          {
+            alert: 'ResourceStateMetricsFamilyCardinalityApproachingLimit',
+            expr: |||
+              (
+                resource_state_metrics_family_cardinality{%(resourceStateMetricsSelector)s}
+                /
+                resource_state_metrics_family_cardinality_limit{%(resourceStateMetricsSelector)s}
+              ) > 0.8
+              and
+              resource_state_metrics_family_cardinality_limit{%(resourceStateMetricsSelector)s} > 0
+            ||| % $._config,
+            'for': '15m',
+            labels: {
+              severity: 'info',
+            },
+            annotations: {
+              summary: 'A metric family is approaching its cardinality limit.',
+              description: 'The family "{{ $labels.family }}" in ResourceMetricsMonitor {{ $labels.namespace }}/{{ $labels.name }} is at {{ $value | humanizePercentage }} of its configured cardinality limit.',
+            },
+          },
+          {
+            alert: 'ResourceStateMetricsGlobalCardinalityApproachingLimit',
+            expr: |||
+              (
+                resource_state_metrics_global_cardinality{%(resourceStateMetricsSelector)s}
+                /
+                resource_state_metrics_global_cardinality_limit{%(resourceStateMetricsSelector)s}
+              ) > 0.8
+              and
+              resource_state_metrics_global_cardinality_limit{%(resourceStateMetricsSelector)s} > 0
+            ||| % $._config,
+            'for': '15m',
+            labels: {
+              severity: 'warning',
+            },
+            annotations: {
+              summary: 'Global cardinality is approaching its limit.',
+              description: 'Total cardinality across all ResourceMetricsMonitors is at {{ $value | humanizePercentage }} of the configured global limit. Review RMM configurations to reduce overall cardinality.',
+            },
+          },
         ],
       },
     ],

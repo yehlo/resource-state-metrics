@@ -53,24 +53,35 @@ import (
 	"k8s.io/klog/v2"
 )
 
+// NOTE: When adding new metrics, consider revisiting the alerting mixins.
 type metrics struct {
-	requestDurationVec *prometheus.HistogramVec
-	resourcesMonitored *prometheus.GaugeVec
-	eventsProcessed    *prometheus.CounterVec
-	configParseErrors  *prometheus.CounterVec
-	celEvaluations     *prometheus.CounterVec
+	requestDurationVec       *prometheus.HistogramVec
+	resourcesMonitored       *prometheus.GaugeVec
+	eventsProcessed          *prometheus.CounterVec
+	configParseErrors        *prometheus.CounterVec
+	celEvaluations           *prometheus.CounterVec
+	familyCardinality        *prometheus.GaugeVec
+	familyCardinalityLimit   *prometheus.GaugeVec
+	storeCardinality         *prometheus.GaugeVec
+	storeCardinalityLimit    *prometheus.GaugeVec
+	resourceCardinality      *prometheus.GaugeVec
+	resourceCardinalityLimit *prometheus.GaugeVec
+	globalCardinality        prometheus.Gauge
+	globalCardinalityLimit   prometheus.Gauge
+	cardinalityExceeded      *prometheus.CounterVec
 }
 
 // Controller is the controller implementation for managed resources.
 type Controller struct {
-	kubeclientset      kubernetes.Interface
-	rsmClientset       clientset.Interface
-	dynamicClientset   dynamic.Interface
-	rsmInformerFactory informers.SharedInformerFactory
-	workqueue          workqueue.TypedRateLimitingInterface[[2]string]
-	recorder           record.EventRecorder
-	stores             sync.Map
-	options            *options.Options
+	kubeclientset            kubernetes.Interface
+	rsmClientset             clientset.Interface
+	dynamicClientset         dynamic.Interface
+	rsmInformerFactory       informers.SharedInformerFactory
+	workqueue                workqueue.TypedRateLimitingInterface[[2]string]
+	recorder                 record.EventRecorder
+	stores                   sync.Map
+	options                  *options.Options
+	globalCardinalityManager *GlobalCardinalityManager
 
 	metrics
 }
@@ -100,6 +111,11 @@ func NewController(ctx context.Context, options *options.Options, kubeClientset 
 		workqueue:          workqueue.NewTypedRateLimitingQueue[[2]string](ratelimiter),
 		recorder:           recorder,
 		options:            options,
+		globalCardinalityManager: NewGlobalCardinalityManager(
+			*options.GlobalCardinalityLimit,
+			*options.ResourceCardinalityDefault,
+			*options.CardinalityWarningRatio,
+		),
 	}
 
 	controller.registerEventHandlers(logger)
@@ -159,6 +175,60 @@ func (c *Controller) Run(ctx context.Context, workers int) error {
 		Name:      "cel_evaluations_total",
 		Help:      "Total number of CEL expression evaluations by result.",
 	}, []string{"namespace", "name", "family", "result"})
+
+	c.familyCardinality = promauto.With(registry).NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "family_cardinality",
+		Help:      "Current cardinality (number of time series) per metric family.",
+	}, []string{"namespace", "name", "store", "family"})
+
+	c.familyCardinalityLimit = promauto.With(registry).NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "family_cardinality_limit",
+		Help:      "Configured cardinality limit per metric family. 0 means unlimited.",
+	}, []string{"namespace", "name", "store", "family"})
+
+	c.storeCardinality = promauto.With(registry).NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "store_cardinality",
+		Help:      "Current cardinality (number of time series) per store (generator).",
+	}, []string{"namespace", "name", "store"})
+
+	c.storeCardinalityLimit = promauto.With(registry).NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "store_cardinality_limit",
+		Help:      "Configured cardinality limit per store (generator). 0 means unlimited.",
+	}, []string{"namespace", "name", "store"})
+
+	c.resourceCardinality = promauto.With(registry).NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "resource_cardinality",
+		Help:      "Current cardinality (number of time series) per ResourceMetricsMonitor.",
+	}, []string{"namespace", "name"})
+
+	c.resourceCardinalityLimit = promauto.With(registry).NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "resource_cardinality_limit",
+		Help:      "Configured cardinality limit per ResourceMetricsMonitor. 0 means unlimited.",
+	}, []string{"namespace", "name"})
+
+	c.globalCardinality = promauto.With(registry).NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "global_cardinality",
+		Help:      "Current total cardinality (number of time series) across all ResourceMetricsMonitors.",
+	})
+
+	c.globalCardinalityLimit = promauto.With(registry).NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "global_cardinality_limit",
+		Help:      "Configured global cardinality limit across all ResourceMetricsMonitors. 0 means unlimited.",
+	})
+
+	c.cardinalityExceeded = promauto.With(registry).NewCounterVec(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "cardinality_exceeded_total",
+		Help:      "Total number of times cardinality thresholds were exceeded.",
+	}, []string{"namespace", "name", "level", "entity"})
 
 	selfAddr := net.JoinHostPort(*c.options.SelfHost, strconv.Itoa(*c.options.SelfPort))
 	mainAddr := net.JoinHostPort(*c.options.MainHost, strconv.Itoa(*c.options.MainPort))

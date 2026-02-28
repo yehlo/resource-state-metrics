@@ -1,0 +1,38 @@
+---
+name: resourcemetricsmonitor-cardinality-high-limit
+description: >
+  Test that metrics are generated normally when cardinality is well within
+  the specified limits. This RMM has a high cardinalityLimit (1000) at both
+  family and store levels, ensuring all metrics are generated.
+in:
+  apiVersion: resource-state-metrics.instrumentation.k8s-sigs.io/v1alpha1
+  kind: ResourceMetricsMonitor
+  metadata:
+    name: resourcemetricsmonitor-cardinality-high-limit
+    namespace: default
+  spec:
+    configuration: |
+      cardinalityLimit: 10000
+      generators:
+        - group: "samplecontroller.k8s.io"
+          version: "v1beta1"
+          kind: "Bar"
+          resource: "bars"
+          cardinalityLimit: 1000
+          families:
+            - name: "cardinality_high_limit_test"
+              help: "High limit test - should generate all metrics"
+              cardinalityLimit: 500
+              metrics:
+                - labels:
+                    - name: "name"
+                      value: "metadata.name"
+                    - name: "language"
+                      value: "spec.language"
+                  value: "1"
+out:
+  metrics:
+    - '# HELP kube_customresource_cardinality_high_limit_test High limit test - should generate all metrics'
+    - '# TYPE kube_customresource_cardinality_high_limit_test gauge'
+    - 'kube_customresource_cardinality_high_limit_test{language="csharp",name="test-sample",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
+    - 'kube_customresource_cardinality_high_limit_test{language="csharp",name="test-sample-secondary",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'

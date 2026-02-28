@@ -1,0 +1,33 @@
+---
+name: resourcemetricsmonitor-cardinality-basic
+description: >
+  Test that cardinality tracking works correctly with a basic configuration.
+  This RMM has no cardinality limits set, so all metrics should be generated.
+  The cardinality is tracked internally but does not affect metric generation.
+in:
+  apiVersion: resource-state-metrics.instrumentation.k8s-sigs.io/v1alpha1
+  kind: ResourceMetricsMonitor
+  metadata:
+    name: resourcemetricsmonitor-cardinality-basic
+    namespace: default
+  spec:
+    configuration: |
+      generators:
+        - group: "samplecontroller.k8s.io"
+          version: "v1beta1"
+          kind: "Bar"
+          resource: "bars"
+          families:
+            - name: "cardinality_test_basic"
+              help: "Basic cardinality test metric"
+              metrics:
+                - labels:
+                    - name: "name"
+                      value: "metadata.name"
+                  value: "1"
+out:
+  metrics:
+    - '# HELP kube_customresource_cardinality_test_basic Basic cardinality test metric'
+    - '# TYPE kube_customresource_cardinality_test_basic gauge'
+    - 'kube_customresource_cardinality_test_basic{name="test-sample",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
+    - 'kube_customresource_cardinality_test_basic{name="test-sample-secondary",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'

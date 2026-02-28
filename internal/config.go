@@ -40,30 +40,43 @@ type configure interface {
 
 // configuration defines the structured representation of a YAML configuration.
 type configuration struct {
-	Stores []*StoreType `json:"generators" yaml:"generators"`
+	Stores           []*StoreType `json:"generators"                 yaml:"generators"`
+	CardinalityLimit int64        `json:"cardinalityLimit,omitempty" yaml:"cardinalityLimit,omitempty"`
 }
 
 // configurer knows how to parse a YAML configuration.
 type configurer struct {
-	configuration    configuration
-	dynamicClientset dynamic.Interface
-	resource         *v1alpha1.ResourceMetricsMonitor
-	celCostLimit     uint64
-	celTimeout       time.Duration
-	celEvaluations   *prometheus.CounterVec
+	configuration              configuration
+	dynamicClientset           dynamic.Interface
+	resource                   *v1alpha1.ResourceMetricsMonitor
+	celCostLimit               uint64
+	celTimeout                 time.Duration
+	celEvaluations             *prometheus.CounterVec
+	resourceCardinalityDefault int64
+	cardinalityWarningRatio    float64
 }
 
 // Ensure configurer implements configure.
 var _ configure = &configurer{}
 
 // newConfigurer returns a new configurer.
-func newConfigurer(dynamicClientset dynamic.Interface, resource *v1alpha1.ResourceMetricsMonitor, celCostLimit uint64, celTimeout time.Duration, celEvaluations *prometheus.CounterVec) *configurer {
+func newConfigurer(
+	dynamicClientset dynamic.Interface,
+	resource *v1alpha1.ResourceMetricsMonitor,
+	celCostLimit uint64,
+	celTimeout time.Duration,
+	celEvaluations *prometheus.CounterVec,
+	resourceCardinalityDefault int64,
+	cardinalityWarningRatio float64,
+) *configurer {
 	return &configurer{
-		dynamicClientset: dynamicClientset,
-		resource:         resource,
-		celCostLimit:     celCostLimit,
-		celTimeout:       celTimeout,
-		celEvaluations:   celEvaluations,
+		dynamicClientset:           dynamicClientset,
+		resource:                   resource,
+		celCostLimit:               celCostLimit,
+		celTimeout:                 celTimeout,
+		celEvaluations:             celEvaluations,
+		resourceCardinalityDefault: resourceCardinalityDefault,
+		cardinalityWarningRatio:    cardinalityWarningRatio,
 	}
 }
 
@@ -89,6 +102,11 @@ func (c *configurer) build(ctx context.Context, stores *sync.Map) {
 func (c *configurer) buildStoreFromConfig(ctx context.Context, cfg *StoreType) *StoreType {
 	gvkWithR := buildGVKR(cfg)
 
+	storeCardinalityLimit := cfg.CardinalityLimit
+	if storeCardinalityLimit <= 0 {
+		storeCardinalityLimit = c.resourceCardinalityDefault
+	}
+
 	return buildStore(
 		ctx,
 		c.dynamicClientset,
@@ -102,6 +120,8 @@ func (c *configurer) buildStoreFromConfig(ctx context.Context, cfg *StoreType) *
 		c.celEvaluations,
 		c.resource.GetNamespace(),
 		c.resource.GetName(),
+		storeCardinalityLimit,
+		c.cardinalityWarningRatio,
 	)
 }
 

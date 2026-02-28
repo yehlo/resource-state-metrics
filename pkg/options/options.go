@@ -22,42 +22,73 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 
 	"k8s.io/klog/v2"
 )
 
-const (
-	autoGOMAXPROCSFlagName  = "auto-gomaxprocs"
-	celCostLimitFlagName    = "cel-cost-limit"
-	celTimeoutFlagName      = "cel-timeout-seconds"
-	kubeconfigFlagName      = "kubeconfig"
-	mainHostFlagName        = "main-host"
-	mainPortFlagName        = "main-port"
-	masterURLFlagName       = "master"
-	ratioGOMEMLIMITFlagName = "ratio-gomemlimit"
-	selfHostFlagName        = "self-host"
-	selfPortFlagName        = "self-port"
-	versionFlagName         = "version"
-	workersFlagName         = "workers"
+// flagRegistration holds the registered flag values (shared across all Options instances).
+var (
+	flagOnce sync.Once
+	// Registered flag values.
+	registeredAutoGOMAXPROCS             *bool
+	registeredCardinalityWarningRatio    *float64
+	registeredCELCostLimit               *uint64
+	registeredCELTimeout                 *int
+	registeredGlobalCardinalityLimit     *int64
+	registeredKubeconfig                 *string
+	registeredMainHost                   *string
+	registeredMainPort                   *int
+	registeredMasterURL                  *string
+	registeredRatioGOMEMLIMIT            *float64
+	registeredResourceCardinalityDefault *int64
+	registeredSelfHost                   *string
+	registeredSelfPort                   *int
+	registeredVersion                    *bool
+	registeredWorkers                    *int
+)
 
-	CELDefaultCostLimit = 1e5
-	CELDefaultTimeout   = 5
+const (
+	autoGOMAXPROCSFlagName             = "auto-gomaxprocs"
+	cardinalityWarningRatioFlagName    = "cardinality-warning-ratio"
+	celCostLimitFlagName               = "cel-cost-limit"
+	celTimeoutFlagName                 = "cel-timeout-seconds"
+	globalCardinalityLimitFlagName     = "global-cardinality-limit"
+	kubeconfigFlagName                 = "kubeconfig"
+	mainHostFlagName                   = "main-host"
+	mainPortFlagName                   = "main-port"
+	masterURLFlagName                  = "master"
+	ratioGOMEMLIMITFlagName            = "ratio-gomemlimit"
+	resourceCardinalityDefaultFlagName = "resource-cardinality-default"
+	selfHostFlagName                   = "self-host"
+	selfPortFlagName                   = "self-port"
+	versionFlagName                    = "version"
+	workersFlagName                    = "workers"
+
+	CELDefaultCostLimit               = 1e5
+	CELDefaultTimeout                 = 5
+	DefaultGlobalCardinalityLimit     = 0      // 0 means unlimited
+	DefaultResourceCardinalityDefault = 100000 // 100k samples per RMM
+	DefaultCardinalityWarningRatio    = 0.8    // warn at 80% of threshold
 )
 
 // Options represents the command-line Options.
 type Options struct {
-	AutoGOMAXPROCS  *bool
-	CELCostLimit    *uint64
-	CELTimeout      *int
-	Kubeconfig      *string
-	MainHost        *string
-	MainPort        *int
-	MasterURL       *string
-	RatioGOMEMLIMIT *float64
-	SelfHost        *string
-	SelfPort        *int
-	Version         *bool
-	Workers         *int
+	AutoGOMAXPROCS             *bool
+	CardinalityWarningRatio    *float64
+	CELCostLimit               *uint64
+	CELTimeout                 *int
+	GlobalCardinalityLimit     *int64
+	Kubeconfig                 *string
+	MainHost                   *string
+	MainPort                   *int
+	MasterURL                  *string
+	RatioGOMEMLIMIT            *float64
+	ResourceCardinalityDefault *int64
+	SelfHost                   *string
+	SelfPort                   *int
+	Version                    *bool
+	Workers                    *int
 
 	logger klog.Logger
 }
@@ -70,54 +101,91 @@ func NewOptions(logger klog.Logger) *Options {
 }
 
 // Read reads the command-line flags and applies overrides, if any.
+// This method is safe to call multiple times; flags are only registered once.
 func (o *Options) Read() {
-	o.AutoGOMAXPROCS = flag.Bool(autoGOMAXPROCSFlagName, true, "Automatically set GOMAXPROCS to match CPU quota.")
-	//nolint:lll
-	o.CELCostLimit = flag.Uint64(celCostLimitFlagName, CELDefaultCostLimit, "Maximum cost budget for CEL expression evaluation. CEL cost represents computational complexity: traversing an object field costs 1, invoking a function varies by complexity. This limit prevents runaway expressions from consuming excessive resources. Typical queries cost 100-10000; increase if legitimate queries hit the limit.")
-	//nolint:lll
-	o.CELTimeout = flag.Int(celTimeoutFlagName, CELDefaultTimeout, "Maximum time in seconds for CEL expression evaluation. This timeout enforces a wall-clock limit on query execution to prevent slow expressions from blocking metric generation. Increase if complex legitimate queries timeout.")
-	o.Kubeconfig = flag.String(kubeconfigFlagName, os.Getenv("KUBECONFIG"), "Path to a kubeconfig. Only required if out-of-cluster.")
-	o.MainHost = flag.String(mainHostFlagName, "::", "Host to expose main metrics on.")
-	o.MainPort = flag.Int(mainPortFlagName, 9999, "Port to expose main metrics on.")
-	o.MasterURL = flag.String(masterURLFlagName, os.Getenv("KUBERNETES_MASTER"), "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
-	o.RatioGOMEMLIMIT = flag.Float64(ratioGOMEMLIMITFlagName, 0.9, "GOMEMLIMIT to memory quota ratio.")
-	o.SelfHost = flag.String(selfHostFlagName, "::", "Host to expose self (telemetry) metrics on.")
-	o.SelfPort = flag.Int(selfPortFlagName, 9998, "Port to expose self (telemetry) metrics on.")
-	o.Version = flag.Bool(versionFlagName, false, "Print version information and quit")
-	o.Workers = flag.Int(workersFlagName, 2, "Number of workers processing managed resources in the workqueue.")
-	flag.Parse()
+	// Register flags only once to avoid "flag redefined" panics when multiple
+	// Options instances call Read() (e.g., in parallel tests).
+	flagOnce.Do(func() {
+		registeredAutoGOMAXPROCS = flag.Bool(autoGOMAXPROCSFlagName, true, "Automatically set GOMAXPROCS to match CPU quota.")
+		//nolint:lll
+		registeredCardinalityWarningRatio = flag.Float64(cardinalityWarningRatioFlagName, DefaultCardinalityWarningRatio, "Ratio of cardinality threshold at which to emit warning conditions (0.0-1.0). Default 0.8 means warnings start at 80% of threshold.")
+		//nolint:lll
+		registeredCELCostLimit = flag.Uint64(celCostLimitFlagName, CELDefaultCostLimit, "Maximum cost budget for CEL expression evaluation. CEL cost represents computational complexity: traversing an object field costs 1, invoking a function varies by complexity. This limit prevents runaway expressions from consuming excessive resources. Typical queries cost 100-10000; increase if legitimate queries hit the limit.")
+		//nolint:lll
+		registeredCELTimeout = flag.Int(celTimeoutFlagName, CELDefaultTimeout, "Maximum time in seconds for CEL expression evaluation. This timeout enforces a wall-clock limit on query execution to prevent slow expressions from blocking metric generation. Increase if complex legitimate queries timeout.")
+		//nolint:lll
+		registeredGlobalCardinalityLimit = flag.Int64(globalCardinalityLimitFlagName, DefaultGlobalCardinalityLimit, "Maximum total cardinality across all RMM resources. 0 means unlimited. When exceeded, all metric generation is cut off.")
+		registeredKubeconfig = flag.String(kubeconfigFlagName, os.Getenv("KUBECONFIG"), "Path to a kubeconfig. Only required if out-of-cluster.")
+		registeredMainHost = flag.String(mainHostFlagName, "::", "Host to expose main metrics on.")
+		registeredMainPort = flag.Int(mainPortFlagName, 9999, "Port to expose main metrics on.")
+		registeredMasterURL = flag.String(masterURLFlagName, os.Getenv("KUBERNETES_MASTER"), "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
+		registeredRatioGOMEMLIMIT = flag.Float64(ratioGOMEMLIMITFlagName, 0.9, "GOMEMLIMIT to memory quota ratio.")
+		//nolint:lll
+		registeredResourceCardinalityDefault = flag.Int64(resourceCardinalityDefaultFlagName, DefaultResourceCardinalityDefault, "Default cardinality limit per RMM resource. Can be overridden per-RMM via configuration YAML. 0 means unlimited.")
+		registeredSelfHost = flag.String(selfHostFlagName, "::", "Host to expose self (telemetry) metrics on.")
+		registeredSelfPort = flag.Int(selfPortFlagName, 9998, "Port to expose self (telemetry) metrics on.")
+		registeredVersion = flag.Bool(versionFlagName, false, "Print version information and quit")
+		registeredWorkers = flag.Int(workersFlagName, 2, "Number of workers processing managed resources in the workqueue.")
+		flag.Parse()
 
-	// Respect overrides, this also helps in testing without setting the same defaults in a bunch of places.
-	flag.VisitAll(func(f *flag.Flag) {
-		// Don't override flags that have been set. Environment variables do not take precedence over command-line flags.
-		if f.Value.String() != f.DefValue {
-			err := o.validateFlag(f.Name, f.Value.String())
-			if err != nil {
-				panic(fmt.Sprintf("Invalid value for flag %s: %v", f.Name, err))
-			}
+		// Respect overrides, this also helps in testing without setting the same defaults in a bunch of places.
+		flag.VisitAll(func(f *flag.Flag) {
+			// Don't override flags that have been set. Environment variables do not take precedence over command-line flags.
+			if f.Value.String() != f.DefValue {
+				err := validateFlag(f.Name, f.Value.String())
+				if err != nil {
+					panic(fmt.Sprintf("Invalid value for flag %s: %v", f.Name, err))
+				}
 
-			return
-		}
-		name := f.Name
-		overriderForOptionName := `RSM_` + strings.ReplaceAll(strings.ToUpper(name), "-", "_")
-		if value, ok := os.LookupEnv(overriderForOptionName); ok {
-			o.logger.V(1).Info(fmt.Sprintf("Overriding flag %s with %s=%s", name, overriderForOptionName, value))
-			err := flag.Set(name, value)
-			if err != nil {
-				panic(fmt.Sprintf("Failed to set flag %s to %s: %v", name, value, err))
+				return
 			}
-		}
+			name := f.Name
+			overriderForOptionName := `RSM_` + strings.ReplaceAll(strings.ToUpper(name), "-", "_")
+			if value, ok := os.LookupEnv(overriderForOptionName); ok {
+				klog.V(1).Info(fmt.Sprintf("Overriding flag %s with %s=%s", name, overriderForOptionName, value))
+				err := flag.Set(name, value)
+				if err != nil {
+					panic(fmt.Sprintf("Failed to set flag %s to %s: %v", name, value, err))
+				}
+			}
+		})
 	})
+
+	// Copy registered values to this Options instance
+	o.AutoGOMAXPROCS = registeredAutoGOMAXPROCS
+	o.CardinalityWarningRatio = registeredCardinalityWarningRatio
+	o.CELCostLimit = registeredCELCostLimit
+	o.CELTimeout = registeredCELTimeout
+	o.GlobalCardinalityLimit = registeredGlobalCardinalityLimit
+	o.Kubeconfig = registeredKubeconfig
+	o.MainHost = registeredMainHost
+	o.MainPort = registeredMainPort
+	o.MasterURL = registeredMasterURL
+	o.RatioGOMEMLIMIT = registeredRatioGOMEMLIMIT
+	o.ResourceCardinalityDefault = registeredResourceCardinalityDefault
+	o.SelfHost = registeredSelfHost
+	o.SelfPort = registeredSelfPort
+	o.Version = registeredVersion
+	o.Workers = registeredWorkers
 }
 
-func (o *Options) validateFlag(name, value string) error {
-	if name == celTimeoutFlagName {
+func validateFlag(name, value string) error {
+	switch name {
+	case celTimeoutFlagName:
 		valueInt, err := strconv.Atoi(value)
 		if err != nil {
 			return fmt.Errorf("invalid value for %s: %w", name, err)
 		}
 		if valueInt <= 0 || valueInt > 300 {
 			return fmt.Errorf("%s must be between 1 and 300 seconds", name)
+		}
+	case cardinalityWarningRatioFlagName:
+		valueFloat, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			return fmt.Errorf("invalid value for %s: %w", name, err)
+		}
+		if valueFloat < 0 || valueFloat > 1.0 {
+			return fmt.Errorf("%s must be between 0.0 and 1.0", name)
 		}
 	}
 

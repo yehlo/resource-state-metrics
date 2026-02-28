@@ -1,0 +1,39 @@
+---
+name: resourcemetricsmonitor-cardinality-store-cutoff
+description: >
+  Test store-level (generator-level) cardinality cutoff. This RMM has a
+  generator with cardinalityLimit of 2, meaning only 2 total samples across
+  all families should be generated before the entire store is cut off.
+
+  With 2 Bar resources and 1 metric per family, the limit will be hit
+  after processing the first resource (generating 1 sample), allowing
+  only limited metric generation.
+in:
+  apiVersion: resource-state-metrics.instrumentation.k8s-sigs.io/v1alpha1
+  kind: ResourceMetricsMonitor
+  metadata:
+    name: resourcemetricsmonitor-cardinality-store-cutoff
+    namespace: default
+  spec:
+    configuration: |
+      generators:
+        - group: "samplecontroller.k8s.io"
+          version: "v1beta1"
+          kind: "Bar"
+          resource: "bars"
+          cardinalityLimit: 2
+          families:
+            - name: "cardinality_store_cutoff_test"
+              help: "Store cutoff test - store limit 2"
+              metrics:
+                - labels:
+                    - name: "name"
+                      value: "metadata.name"
+                  value: "1"
+out:
+  metrics:
+    # Only 2 samples total allowed for this store
+    - '# HELP kube_customresource_cardinality_store_cutoff_test Store cutoff test - store limit 2'
+    - '# TYPE kube_customresource_cardinality_store_cutoff_test gauge'
+    - 'kube_customresource_cardinality_store_cutoff_test{name="test-sample",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
+    - 'kube_customresource_cardinality_store_cutoff_test{name="test-sample-secondary",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'

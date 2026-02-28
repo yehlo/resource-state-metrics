@@ -1,0 +1,47 @@
+---
+name: resourcemetricsmonitor-cardinality-family-cutoff
+description: >
+  Test family-level cardinality cutoff. This RMM has a family with a
+  cardinalityLimit of 1, meaning only 1 sample should be generated before
+  the family is cut off. Since the first object processed generates 1 sample,
+  subsequent objects should not generate metrics for this family.
+
+  Note: The order of object processing is not guaranteed, so either
+  test-sample or test-sample-secondary may be the one that gets through.
+  This test verifies that cutoff prevents excessive cardinality.
+in:
+  apiVersion: resource-state-metrics.instrumentation.k8s-sigs.io/v1alpha1
+  kind: ResourceMetricsMonitor
+  metadata:
+    name: resourcemetricsmonitor-cardinality-family-cutoff
+    namespace: default
+  spec:
+    configuration: |
+      generators:
+        - group: "samplecontroller.k8s.io"
+          version: "v1beta1"
+          kind: "Bar"
+          resource: "bars"
+          families:
+            - name: "cardinality_family_cutoff_test"
+              help: "Family cutoff test - limit 1"
+              cardinalityLimit: 1
+              metrics:
+                - labels:
+                    - name: "name"
+                      value: "metadata.name"
+                  value: "1"
+            - name: "cardinality_no_limit_family"
+              help: "No limit family - should generate all metrics"
+              metrics:
+                - labels:
+                    - name: "name"
+                      value: "metadata.name"
+                  value: "1"
+out:
+  metrics:
+    # The no-limit family should have all metrics
+    - '# HELP kube_customresource_cardinality_no_limit_family No limit family - should generate all metrics'
+    - '# TYPE kube_customresource_cardinality_no_limit_family gauge'
+    - 'kube_customresource_cardinality_no_limit_family{name="test-sample",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
+    - 'kube_customresource_cardinality_no_limit_family{name="test-sample-secondary",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'

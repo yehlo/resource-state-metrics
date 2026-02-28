@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/iancoleman/strcase"
@@ -109,11 +110,23 @@ type FamilyType struct {
 	managedRMMNamespace string
 	managedRMMName      string
 	createdAt           time.Time
+	cutoff              atomic.Bool
 	Name                string        `yaml:"name"`
 	Help                string        `yaml:"help"`
 	Metrics             []*MetricType `yaml:"metrics"`
 	Resolver            ResolverType  `yaml:"resolver,omitempty"`
 	Labels              []Label       `yaml:"labels,omitempty"`
+	CardinalityLimit    int64         `yaml:"cardinalityLimit,omitempty"`
+}
+
+// SetCutoff sets the cutoff state for this family.
+func (f *FamilyType) SetCutoff(cutoff bool) {
+	f.cutoff.Store(cutoff)
+}
+
+// IsCutoff returns whether this family is currently cut off.
+func (f *FamilyType) IsCutoff() bool {
+	return f.cutoff.Load()
 }
 
 // generatePeripheralMetric generates peripheral metrics wherever applicable.
@@ -136,11 +149,21 @@ func generatePeripheralMetric(familyRawBuilder *strings.Builder, familyName stri
 	}
 }
 
-// buildMetricString returns the given family in its byte representation.
-func (f *FamilyType) buildMetricString(unstructured *unstructured.Unstructured) string {
+// buildMetricString returns the given family in its byte representation and the sample count.
+// If the family is cut off due to cardinality limits, it returns an empty string and 0.
+func (f *FamilyType) buildMetricString(unstructured *unstructured.Unstructured) (string, int64) {
 	logger := f.logger.WithValues("family", f.Name)
+
+	if f.IsCutoff() {
+		logger.V(1).Info("Family is cut off due to cardinality limits, skipping metric generation")
+
+		return "", 0
+	}
+
 	familyRawBuilder := getBuilder()
 	defer putBuilder(familyRawBuilder)
+
+	var sampleCount int64
 
 	for _, metric := range f.Metrics {
 		metricRawBuilder := getBuilder()
@@ -188,17 +211,18 @@ func (f *FamilyType) buildMetricString(unstructured *unstructured.Unstructured) 
 			resolvedExpandedLabelSet[expandedValueSentinel] = expandedValues
 		}
 
-		err = writeMetricSamples(metricRawBuilder, f.Name, f.kind(), unstructured, resolvedLabelKeys, resolvedLabelValues, resolvedExpandedLabelSet, resolvedValue, logger)
+		samples, err := writeMetricSamplesWithCount(metricRawBuilder, f.Name, f.kind(), unstructured, resolvedLabelKeys, resolvedLabelValues, resolvedExpandedLabelSet, resolvedValue, logger)
 		if err != nil {
 			putBuilder(metricRawBuilder)
 
 			continue
 		}
+		sampleCount += samples
 		familyRawBuilder.WriteString(metricRawBuilder.String())
 		putBuilder(metricRawBuilder)
 	}
 
-	return familyRawBuilder.String()
+	return familyRawBuilder.String(), sampleCount
 }
 
 // inheritMetricAttributes applies family-level labels and resolver to the metric.
@@ -265,8 +289,8 @@ func sanitizeKey(s string) string {
 	return strcase.ToSnake(regexp.MustCompile(`\W`).ReplaceAllString(s, "_"))
 }
 
-// writeMetricSamples writes single or expanded metric values based on label structure.
-func writeMetricSamples(
+// writeMetricSamplesWithCount writes single or expanded metric values and returns the sample count.
+func writeMetricSamplesWithCount(
 	builder *strings.Builder,
 	name string,
 	kind MetricKind,
@@ -275,7 +299,7 @@ func writeMetricSamples(
 	expanded map[string][]string,
 	value string,
 	logger klog.Logger,
-) error {
+) (int64, error) {
 	// Extract per-sample values stored under the sentinel when the value
 	// expression resolved to a list. The sentinel is not a real label.
 	// NOTE that we do not want resolver-specific logic making its way into
@@ -285,6 +309,7 @@ func writeMetricSamples(
 	expandedValues := expanded[expandedValueSentinel]
 	delete(expanded, expandedValueSentinel)
 
+	var sampleCount int64
 	i := 0
 	writeMetric := func(k, v []string) error {
 		builder.WriteString(kubeCustomResourcePrefix + name)
@@ -293,6 +318,7 @@ func writeMetricSamples(
 			currentValue = expandedValues[i]
 		}
 		i++
+		sampleCount++
 
 		return writeMetricTo(
 			builder,
@@ -306,19 +332,27 @@ func writeMetricSamples(
 	}
 	if len(expanded) == 0 {
 		if len(expandedValues) == 0 {
-			return writeSingleSample(writeMetric, keys, values, logger)
+			if err := writeSingleSample(writeMetric, keys, values, logger); err != nil {
+				return 0, err
+			}
+
+			return sampleCount, nil
 		}
 		// Value-only expansion: one sample per expanded value, same label set.
 		for range expandedValues {
 			if err := writeSingleSample(writeMetric, keys, values, logger); err != nil {
-				return err
+				return sampleCount, err
 			}
 		}
 
-		return nil
+		return sampleCount, nil
 	}
 
-	return writeExpandedSamples(writeMetric, keys, values, expanded, logger)
+	if err := writeExpandedSamples(writeMetric, keys, values, expanded, logger); err != nil {
+		return sampleCount, err
+	}
+
+	return sampleCount, nil
 }
 
 // writeSingleSample writes a single metric sample.

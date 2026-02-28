@@ -156,6 +156,19 @@ func (f *Framework) Start(ctx context.Context, workers int) error {
 	f.Options = &options.Options{Workers: &workers}
 	f.Options.Read()
 
+	// Allocate free ports dynamically to avoid conflicts between tests
+	mainPort, err := getFreePort()
+	if err != nil {
+		return fmt.Errorf("failed to allocate main port: %w", err)
+	}
+	f.Options.MainPort = &mainPort
+
+	selfPort, err := getFreePort()
+	if err != nil {
+		return fmt.Errorf("failed to allocate self port: %w", err)
+	}
+	f.Options.SelfPort = &selfPort
+
 	f.controller = internal.NewController(ctx, f.Options, f.kubeClient, f.RSMClient, f.dynamicClient)
 
 	// Start controller in background
@@ -522,4 +535,20 @@ func ensureSafePath(path string) string {
 	}
 
 	return absolutePath
+}
+
+// getFreePort returns an available port by briefly binding to port 0 (which lets the OS assign a free port).
+func getFreePort() (int, error) {
+	listener, err := net.Listen("tcp", ":0") //nolint:gosec,noctx // G102: This is intentional for test port allocation; simple test helper
+	if err != nil {
+		return 0, fmt.Errorf("failed to listen on free port: %w", err)
+	}
+	defer listener.Close()
+
+	addr, ok := listener.Addr().(*net.TCPAddr)
+	if !ok {
+		return 0, errors.New("unexpected address type")
+	}
+
+	return addr.Port, nil
 }

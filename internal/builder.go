@@ -70,6 +70,8 @@ func buildStore(
 	celTimeout time.Duration,
 	celEvaluations *prometheus.CounterVec,
 	namespace, name string,
+	storeCardinalityLimit int64,
+	warningRatio float64,
 ) *StoreType {
 	logger := klog.FromContext(ctx)
 	listerwatcher := buildLW(ctx, dynamicClientset, labelSelector, fieldSelector, gvkWithR.GroupVersionResource)
@@ -87,6 +89,15 @@ func buildStore(
 	}
 	headers := buildMetricHeaders(metricFamilies)
 	s := newStore(logger, headers, metricFamilies, resolver, labels, celCostLimit, celTimeout)
+
+	cardinalityTracker := NewCardinalityTracker(storeCardinalityLimit, warningRatio)
+	for _, family := range metricFamilies {
+		if family.CardinalityLimit > 0 {
+			cardinalityTracker.SetFamilyThreshold(family.Name, family.CardinalityLimit)
+		}
+	}
+	s.SetCardinalityTracker(cardinalityTracker)
+
 	startReflector(ctx, listerwatcher, gvkWithR, s)
 
 	return s

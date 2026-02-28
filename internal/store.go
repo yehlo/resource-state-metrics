@@ -37,6 +37,8 @@ type StoreType struct {
 	celCostLimit uint64
 	celTimeout   time.Duration
 
+	cardinalityTracker *CardinalityTracker
+
 	// Configuration fields unmarshalled from YAML
 	Group     string `yaml:"group"`
 	Version   string `yaml:"version"`
@@ -46,9 +48,10 @@ type StoreType struct {
 		Label string `yaml:"label,omitempty"`
 		Field string `yaml:"field,omitempty"`
 	} `yaml:"selectors,omitempty"`
-	Families []*FamilyType `yaml:"families"`
-	Resolver ResolverType  `yaml:"resolver,omitempty"`
-	Labels   []Label       `yaml:"labels,omitempty"`
+	Families         []*FamilyType `yaml:"families"`
+	Resolver         ResolverType  `yaml:"resolver,omitempty"`
+	Labels           []Label       `yaml:"labels,omitempty"`
+	CardinalityLimit int64         `yaml:"cardinalityLimit,omitempty"`
 }
 
 func newStore(
@@ -82,8 +85,16 @@ func (s *StoreType) Add(objectI interface{}) error {
 		return err
 	}
 
-	metrics := s.generateMetricsForObject(unstructuredObject)
-	s.metrics[unstructuredObject.GetUID()] = metrics
+	result := s.generateMetricsForObject(unstructuredObject)
+	s.metrics[unstructuredObject.GetUID()] = result.metrics
+
+	// Update cardinality tracking if tracker is initialized
+	if s.cardinalityTracker != nil {
+		s.cardinalityTracker.Update(unstructuredObject.GetUID(), result.perFamily)
+		// Check thresholds and update cutoff state
+		s.checkAndApplyThresholds()
+	}
+
 	s.logger.V(2).Info("Add", "key", klog.KObj(unstructuredObject))
 
 	return nil
@@ -110,6 +121,11 @@ func (s *StoreType) Delete(objectI interface{}) error {
 	s.logger.V(2).Info("Delete", "key", klog.KObj(object))
 	s.logger.V(4).Info("Delete", "metrics", s.metrics[object.GetUID()])
 	delete(s.metrics, object.GetUID())
+
+	if s.cardinalityTracker != nil {
+		s.cardinalityTracker.Delete(object.GetUID())
+		s.checkAndApplyThresholds()
+	}
 
 	return nil
 }
@@ -142,6 +158,21 @@ func (s *StoreType) GetByKey(_ string) (interface{}, bool, error) { return nil, 
 // Resync is not needed for our use case, so it does nothing and returns nil.
 func (s *StoreType) Resync() error { return nil }
 
+// GetCardinalityTracker returns the cardinality tracker for this store.
+func (s *StoreType) GetCardinalityTracker() *CardinalityTracker {
+	return s.cardinalityTracker
+}
+
+// SetCardinalityTracker sets the cardinality tracker for this store.
+func (s *StoreType) SetCardinalityTracker(tracker *CardinalityTracker) {
+	s.cardinalityTracker = tracker
+}
+
+// GetStoreIdentifier returns a unique identifier for this store (GVK).
+func (s *StoreType) GetStoreIdentifier() string {
+	return s.Group + "/" + s.Version + "/" + s.Kind
+}
+
 func convertToUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
 	unstructuredMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
 	if err != nil {
@@ -151,19 +182,30 @@ func convertToUnstructured(obj interface{}) (*unstructured.Unstructured, error) 
 	return &unstructured.Unstructured{Object: unstructuredMap}, nil
 }
 
-func (s *StoreType) generateMetricsForObject(obj *unstructured.Unstructured) []string {
-	metrics := make([]string, len(s.Families))
+// metricsWithCardinality holds the generated metrics and their cardinality counts.
+type metricsWithCardinality struct {
+	metrics   []string
+	perFamily map[string]int64
+}
+
+func (s *StoreType) generateMetricsForObject(obj *unstructured.Unstructured) metricsWithCardinality {
+	result := metricsWithCardinality{
+		metrics:   make([]string, len(s.Families)),
+		perFamily: make(map[string]int64),
+	}
 
 	for i, family := range s.Families {
 		inheritFamilyConfiguration(family, s)
 
 		family.logger = s.logger
-		metrics[i] = family.buildMetricString(obj)
+		metricStr, sampleCount := family.buildMetricString(obj)
+		result.metrics[i] = metricStr
+		result.perFamily[family.Name] = sampleCount
 
-		s.logger.V(4).Info("Add", "family", family.Name, "metrics", metrics[i])
+		s.logger.V(4).Info("Add", "family", family.Name, "metrics", metricStr, "sampleCount", sampleCount)
 	}
 
-	return metrics
+	return result
 }
 
 func inheritFamilyConfiguration(f *FamilyType, s *StoreType) {
@@ -172,4 +214,21 @@ func inheritFamilyConfiguration(f *FamilyType, s *StoreType) {
 	}
 
 	f.Labels = append(f.Labels, s.Labels...)
+}
+
+// checkAndApplyThresholds checks cardinality thresholds and applies cutoffs to families.
+// This method should be called after any cardinality update (Add, Update, Delete).
+func (s *StoreType) checkAndApplyThresholds() []ThresholdViolation {
+	if s.cardinalityTracker == nil {
+		return nil
+	}
+
+	violations := s.cardinalityTracker.CheckThresholds()
+
+	for _, family := range s.Families {
+		cutoff := s.cardinalityTracker.IsFamilyCutoff(family.Name)
+		family.SetCutoff(cutoff)
+	}
+
+	return violations
 }

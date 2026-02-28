@@ -108,9 +108,13 @@ func TestFamilyType_rawFrom(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			actual := tt.family.buildMetricString(unstructuredWrapper)
+			actual, sampleCount := tt.family.buildMetricString(unstructuredWrapper)
 			if actual != tt.expected {
 				t.Errorf("%s\n%s", actual, cmp.Diff(actual, tt.expected))
+			}
+			// Verify sample count is reasonable (should be at least 1 for non-empty results)
+			if tt.expected != "" && sampleCount == 0 {
+				t.Errorf("expected non-zero sample count for non-empty metric string")
 			}
 		})
 	}

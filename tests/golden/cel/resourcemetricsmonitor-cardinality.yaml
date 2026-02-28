@@ -1,0 +1,38 @@
+---
+name: resourcemetricsmonitor-cardinality-cel
+description: >
+  Test cardinality tracking with CEL resolver. This verifies that cardinality
+  counting works correctly when using CEL expressions for label resolution.
+  A high cardinalityLimit ensures all metrics are generated.
+in:
+  apiVersion: resource-state-metrics.instrumentation.k8s-sigs.io/v1alpha1
+  kind: ResourceMetricsMonitor
+  metadata:
+    name: resourcemetricsmonitor-cardinality-cel
+    namespace: default
+  spec:
+    configuration: |
+      generators:
+        - group: "samplecontroller.k8s.io"
+          version: "v1beta1"
+          kind: "Bar"
+          resource: "bars"
+          resolver: cel
+          cardinalityLimit: 1000
+          families:
+            - name: "cardinality_cel_test"
+              help: "CEL cardinality test"
+              cardinalityLimit: 500
+              metrics:
+                - labels:
+                    - name: "name"
+                      value: "o.metadata.name"
+                    - name: "language"
+                      value: "o.spec.language"
+                  value: "1"
+out:
+  metrics:
+    - '# HELP kube_customresource_cardinality_cel_test CEL cardinality test'
+    - '# TYPE kube_customresource_cardinality_cel_test gauge'
+    - 'kube_customresource_cardinality_cel_test{language="csharp",name="test-sample",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'
+    - 'kube_customresource_cardinality_cel_test{language="csharp",name="test-sample-secondary",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar"} 1.000000'

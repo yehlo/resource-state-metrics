@@ -36,11 +36,9 @@ For more details, take a look at the [Makefile](Makefile) targets.
 
 ##### GA
 
+- [ ] Typed spec instead of the YAML blob currently used in the `ResourceMetricsMonitor` CRD.
+- [ ] Support testing status sub-resource in e2e tests (`.out`?).
 - [ ] [`Starlark`](https://github.com/google/starlark-go) resolver (for more demanding use-cases)
-- [ ] [Cardinality estimation, and control](https://github.com/rexagod/resource-state-metrics/issues/2)
-  - [ ] Talk to Prom server to get an idea of relevant label-sets' cardinality?
-  - [ ] Use an offline-preferred approach with heuristics and internal context?
-  - [ ] This will need to be reflected in the resource status (and tested outside of golden rules).
 
 ##### Post-GA
 
@@ -72,5 +70,9 @@ For more details, take a look at the [Makefile](Makefile) targets.
 - [X] s/dependabot/renovate: https://github.com/kubernetes/org/issues/6167
 - [X] Respect and keep up will all relevant metric types that are supported in Prometheus' OpenMetrics implementation.
 - [X] Add `mixins`.
+- [X] [Cardinality estimation, and control](https://github.com/rexagod/resource-state-metrics/issues/2)
+  - [X] ~~Talk to Prom server to get an idea of relevant label-sets' cardinality?~~
+  - [X] Use an offline-preferred approach with heuristics and internal context?
+  - [X] This will need to be reflected in the resource status (and tested outside of golden rules).
 
 ###### [License](./LICENSE)

@@ -128,7 +128,15 @@ func (c *Controller) processAddOrUpdate(ctx context.Context, stores *sync.Map, e
 
 	stores.Delete(resource.GetUID())
 
-	configurerInstance := newConfigurer(c.dynamicClientset, resource, *c.options.CELCostLimit, time.Duration(*c.options.CELTimeout)*time.Second, c.celEvaluations)
+	configurerInstance := newConfigurer(
+		c.dynamicClientset,
+		resource,
+		*c.options.CELCostLimit,
+		time.Duration(*c.options.CELTimeout)*time.Second,
+		c.celEvaluations,
+		*c.options.ResourceCardinalityDefault,
+		*c.options.CardinalityWarningRatio,
+	)
 	if err := configurerInstance.parse(resource.Spec.Configuration); err != nil {
 		logger.Error(fmt.Errorf("failed to parse configuration YAML: %w", err), "cannot process the resource")
 		c.emitFailure(ctx, resource, fmt.Sprintf("Failed to parse configuration YAML: %s", err))
@@ -141,12 +149,47 @@ func (c *Controller) processAddOrUpdate(ctx context.Context, stores *sync.Map, e
 	configurerInstance.build(ctx, stores)
 	c.resourcesMonitored.WithLabelValues(resource.GetNamespace(), resource.GetName()).Set(1)
 
+	// Non-blocking wait to allow metrics to be generated before calculating cardinality.
+	go func() {
+		_ = wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, 5*time.Second, true, func(_ context.Context) (bool, error) {
+			storesI, ok := stores.Load(resource.GetUID())
+			if !ok {
+				return false, nil
+			}
+			storesList, ok := storesI.([]*StoreType)
+			if !ok || len(storesList) == 0 {
+				return false, nil
+			}
+			for _, store := range storesList {
+				if store.cardinalityTracker != nil && store.cardinalityTracker.GetStoreTotal() > 0 {
+					return true, nil
+				}
+			}
+
+			return false, nil
+		})
+		if err := c.updateCardinalityStatus(ctx, resource); err != nil {
+			klog.FromContext(ctx).Error(err, "failed to update cardinality status")
+		}
+	}()
+
 	return nil
 }
 
 func (c *Controller) processDelete(stores *sync.Map, resource *v1alpha1.ResourceMetricsMonitor) error {
 	stores.Delete(resource.GetUID())
 	c.resourcesMonitored.DeleteLabelValues(resource.GetNamespace(), resource.GetName())
+
+	// Clean up cardinality tracking
+	c.globalCardinalityManager.DeleteResource(resource.GetUID())
+
+	// Clean up cardinality metrics
+	c.resourceCardinality.DeleteLabelValues(resource.GetNamespace(), resource.GetName())
+	// Note: Per-store/per-family metrics are not cleaned up here as it would require
+	// iterating through all label combinations. They will be overwritten if the RMM is recreated.
+
+	// Update global cardinality metric
+	c.globalCardinality.Set(float64(c.globalCardinalityManager.GetGlobalTotal()))
 
 	return nil
 }
@@ -224,4 +267,225 @@ func (c *Controller) updateMetadata(ctx context.Context, resource *v1alpha1.Reso
 
 		return true, nil
 	})
+}
+
+// cardinalityAggregation holds aggregated cardinality data from stores.
+type cardinalityAggregation struct {
+	totalCardinality int64
+	perStore         map[string]int64
+	perStoreLimit    map[string]int64
+	perFamily        map[string]int64
+	perFamilyLimit   map[string]int64
+	cutoffFamilies   []string
+	violations       []ThresholdViolation
+}
+
+// aggregateStoreCardinality aggregates cardinality data from all stores.
+func (c *Controller) aggregateStoreCardinality(stores []*StoreType, resource *v1alpha1.ResourceMetricsMonitor) cardinalityAggregation {
+	agg := cardinalityAggregation{
+		perStore:       make(map[string]int64),
+		perStoreLimit:  make(map[string]int64),
+		perFamily:      make(map[string]int64),
+		perFamilyLimit: make(map[string]int64),
+	}
+
+	for _, store := range stores {
+		if store.cardinalityTracker == nil {
+			continue
+		}
+
+		storeID := store.GetStoreIdentifier()
+		storeTotal := store.cardinalityTracker.GetStoreTotal()
+		agg.perStore[storeID] = storeTotal
+		agg.perStoreLimit[storeID] = store.cardinalityTracker.GetStoreThreshold()
+		agg.totalCardinality += storeTotal
+
+		familyCards := store.cardinalityTracker.GetAllFamilyCardinalities()
+		for family, count := range familyCards {
+			agg.perFamily[family] += count
+		}
+
+		familyLimits := store.cardinalityTracker.GetAllFamilyThresholds()
+		for family, limit := range familyLimits {
+			// Use max if family appears in multiple stores (unusual but possible)
+			if limit > agg.perFamilyLimit[family] {
+				agg.perFamilyLimit[family] = limit
+			}
+		}
+
+		agg.cutoffFamilies = append(agg.cutoffFamilies, store.cardinalityTracker.GetCutoffFamilies()...)
+
+		violations := store.checkAndApplyThresholds()
+		for i := range violations {
+			violations[i].StoreName = storeID
+			violations[i].RMMName = resource.GetName()
+			violations[i].RMMNamespace = resource.GetNamespace()
+		}
+		agg.violations = append(agg.violations, violations...)
+	}
+
+	return agg
+}
+
+// hasThresholdExceeded checks if any violation indicates a threshold exceeded (not just warning).
+func hasThresholdExceeded(violations []ThresholdViolation) bool {
+	for _, v := range violations {
+		if v.Severity == SeverityCutoff {
+			return true
+		}
+	}
+
+	return false
+}
+
+// updateCardinalityStatus aggregates cardinality from all stores for an RMM and updates status.
+func (c *Controller) updateCardinalityStatus(ctx context.Context, resource *v1alpha1.ResourceMetricsMonitor) error {
+	logger := klog.FromContext(ctx)
+	kObj := klog.KObj(resource).String()
+
+	storesI, ok := c.stores.Load(resource.GetUID())
+	if !ok {
+		logger.V(2).Info("No stores found for resource", "resource", kObj)
+
+		return nil
+	}
+
+	stores, ok := storesI.([]*StoreType)
+	if !ok {
+		logger.Error(errors.New("failed to cast stores"), "cannot update cardinality status")
+
+		return nil
+	}
+
+	agg := c.aggregateStoreCardinality(stores, resource)
+
+	c.globalCardinalityManager.UpdateResource(resource.GetUID(), agg.totalCardinality)
+	resourceViolations := c.globalCardinalityManager.CheckThresholds(resource.GetUID(), 0)
+	for i := range resourceViolations {
+		resourceViolations[i].RMMName = resource.GetName()
+		resourceViolations[i].RMMNamespace = resource.GetNamespace()
+	}
+	agg.violations = append(agg.violations, resourceViolations...)
+
+	c.updateCardinalityMetrics(resource, agg)
+	c.recordCardinalityViolations(resource, agg.violations)
+
+	return c.persistCardinalityStatus(ctx, resource, agg)
+}
+
+// recordCardinalityViolations increments the cardinality_exceeded_total metric for violations.
+func (c *Controller) recordCardinalityViolations(resource *v1alpha1.ResourceMetricsMonitor, violations []ThresholdViolation) {
+	for _, v := range violations {
+		if v.Severity == SeverityCutoff {
+			c.cardinalityExceeded.WithLabelValues(
+				resource.GetNamespace(),
+				resource.GetName(),
+				string(v.Level),
+				v.Name,
+			).Inc()
+		}
+	}
+}
+
+// persistCardinalityStatus updates the RMM status with cardinality information.
+func (c *Controller) persistCardinalityStatus(ctx context.Context, resource *v1alpha1.ResourceMetricsMonitor, agg cardinalityAggregation) error {
+	kObj := klog.KObj(resource).String()
+
+	gotResource, err := c.rsmClientset.ResourceStateMetricsV1alpha1().ResourceMetricsMonitors(resource.GetNamespace()).
+		Get(ctx, resource.GetName(), metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get %s: %w", kObj, err)
+	}
+
+	gotResource.Status.Cardinality = &v1alpha1.CardinalityStatus{
+		Total:              agg.totalCardinality,
+		PerStore:           agg.perStore,
+		PerFamily:          agg.perFamily,
+		ThresholdsExceeded: hasThresholdExceeded(agg.violations),
+		CutoffFamilies:     agg.cutoffFamilies,
+		LastUpdated:        metav1.Now(),
+	}
+
+	c.setCardinalityConditions(gotResource, agg.violations)
+
+	_, err = c.rsmClientset.ResourceStateMetricsV1alpha1().ResourceMetricsMonitors(gotResource.GetNamespace()).
+		UpdateStatus(ctx, gotResource, metav1.UpdateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to update cardinality status of %s: %w", kObj, err)
+	}
+
+	return nil
+}
+
+// updateCardinalityMetrics updates the Prometheus cardinality metrics.
+func (c *Controller) updateCardinalityMetrics(resource *v1alpha1.ResourceMetricsMonitor, agg cardinalityAggregation) {
+	namespace := resource.GetNamespace()
+	name := resource.GetName()
+
+	for storeID, count := range agg.perStore {
+		c.storeCardinality.WithLabelValues(namespace, name, storeID).Set(float64(count))
+	}
+
+	for storeID, limit := range agg.perStoreLimit {
+		c.storeCardinalityLimit.WithLabelValues(namespace, name, storeID).Set(float64(limit))
+	}
+
+	for family, count := range agg.perFamily {
+		// We don't have per-store breakdown for family metrics here, so use empty store label.
+		c.familyCardinality.WithLabelValues(namespace, name, "", family).Set(float64(count))
+	}
+
+	for family, limit := range agg.perFamilyLimit {
+		c.familyCardinalityLimit.WithLabelValues(namespace, name, "", family).Set(float64(limit))
+	}
+
+	c.resourceCardinality.WithLabelValues(namespace, name).Set(float64(agg.totalCardinality))
+
+	// Resource limit comes from config or default
+	resourceLimit := c.globalCardinalityManager.GetResourceDefaultThreshold()
+	c.resourceCardinalityLimit.WithLabelValues(namespace, name).Set(float64(resourceLimit))
+
+	c.globalCardinality.Set(float64(c.globalCardinalityManager.GetGlobalTotal()))
+	c.globalCardinalityLimit.Set(float64(c.globalCardinalityManager.GetGlobalThreshold()))
+}
+
+// setCardinalityConditions sets the appropriate cardinality conditions on the resource.
+func (c *Controller) setCardinalityConditions(resource *v1alpha1.ResourceMetricsMonitor, violations []ThresholdViolation) {
+	hasWarning := false
+	hasCutoff := false
+
+	for _, v := range violations {
+		switch v.Severity {
+		case SeverityWarning:
+			hasWarning = true
+		case SeverityCutoff:
+			hasCutoff = true
+		}
+	}
+
+	// Set CardinalityCutoff condition
+	if hasCutoff {
+		resource.Status.Set(resource, metav1.Condition{
+			Type:   v1alpha1.ConditionType[v1alpha1.ConditionTypeCardinalityCutoff],
+			Status: metav1.ConditionTrue,
+		})
+	} else {
+		resource.Status.Set(resource, metav1.Condition{
+			Type:   v1alpha1.ConditionType[v1alpha1.ConditionTypeCardinalityCutoff],
+			Status: metav1.ConditionFalse,
+		})
+	}
+
+	// Set CardinalityWarning condition
+	if hasWarning && !hasCutoff {
+		resource.Status.Set(resource, metav1.Condition{
+			Type:   v1alpha1.ConditionType[v1alpha1.ConditionTypeCardinalityWarning],
+			Status: metav1.ConditionTrue,
+		})
+	} else {
+		resource.Status.Set(resource, metav1.Condition{
+			Type:   v1alpha1.ConditionType[v1alpha1.ConditionTypeCardinalityWarning],
+			Status: metav1.ConditionFalse,
+		})
+	}
 }

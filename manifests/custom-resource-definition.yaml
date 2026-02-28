@@ -67,6 +67,43 @@ spec:
             description: ResourceMetricsMonitorStatus is the status for a ResourceMetricsMonitor
               resource.
             properties:
+              cardinality:
+                description: Cardinality tracks the cardinality metrics for this resource.
+                properties:
+                  cutoffFamilies:
+                    description: CutoffFamilies lists the families that are currently
+                      cut off due to threshold violations.
+                    items:
+                      type: string
+                    type: array
+                  lastUpdated:
+                    description: LastUpdated is the timestamp of the last cardinality
+                      update.
+                    format: date-time
+                    type: string
+                  perFamily:
+                    additionalProperties:
+                      format: int64
+                      type: integer
+                    description: PerFamily maps family names to their cardinality.
+                    type: object
+                  perStore:
+                    additionalProperties:
+                      format: int64
+                      type: integer
+                    description: PerStore maps store identifiers (group/version/kind)
+                      to their cardinality.
+                    type: object
+                  thresholdsExceeded:
+                    description: ThresholdsExceeded indicates whether any cardinality
+                      threshold has been exceeded.
+                    type: boolean
+                  total:
+                    description: Total is the total number of time series generated
+                      by this RMM.
+                    format: int64
+                    type: integer
+                type: object
               conditions:
                 description: Conditions is an array of conditions associated with
                   the resource.

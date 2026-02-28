@@ -92,3 +92,59 @@ groups:
     for: 30m
     labels:
       severity: warning
+  - alert: ResourceStateMetricsCardinalityExceeded
+    annotations:
+      description: The ResourceMetricsMonitor {{ $labels.namespace }}/{{ $labels.name }} has exceeded its configured cardinality thresholds. Metric generation may be cut off. Review the configuration to reduce label cardinality.
+      summary: A ResourceMetricsMonitor has exceeded cardinality limits.
+    expr: |
+      sum by (cluster, namespace, name) (
+        increase(resource_state_metrics_cardinality_exceeded_total{job="resource-state-metrics"}[15m])
+      ) > 0
+    for: 5m
+    labels:
+      severity: warning
+  - alert: ResourceStateMetricsCardinalityApproachingLimit
+    annotations:
+      description: The ResourceMetricsMonitor {{ $labels.namespace }}/{{ $labels.name }} is at {{ $value | humanizePercentage }} of its configured cardinality limit. Consider increasing the limit or reducing label cardinality before metrics are cut off.
+      summary: A ResourceMetricsMonitor is approaching its cardinality limit.
+    expr: |
+      (
+        resource_state_metrics_resource_cardinality{job="resource-state-metrics"}
+        /
+        resource_state_metrics_resource_cardinality_limit{job="resource-state-metrics"}
+      ) > 0.8
+      and
+      resource_state_metrics_resource_cardinality_limit{job="resource-state-metrics"} > 0
+    for: 15m
+    labels:
+      severity: warning
+  - alert: ResourceStateMetricsFamilyCardinalityApproachingLimit
+    annotations:
+      description: The family "{{ $labels.family }}" in ResourceMetricsMonitor {{ $labels.namespace }}/{{ $labels.name }} is at {{ $value | humanizePercentage }} of its configured cardinality limit.
+      summary: A metric family is approaching its cardinality limit.
+    expr: |
+      (
+        resource_state_metrics_family_cardinality{job="resource-state-metrics"}
+        /
+        resource_state_metrics_family_cardinality_limit{job="resource-state-metrics"}
+      ) > 0.8
+      and
+      resource_state_metrics_family_cardinality_limit{job="resource-state-metrics"} > 0
+    for: 15m
+    labels:
+      severity: info
+  - alert: ResourceStateMetricsGlobalCardinalityApproachingLimit
+    annotations:
+      description: Total cardinality across all ResourceMetricsMonitors is at {{ $value | humanizePercentage }} of the configured global limit. Review RMM configurations to reduce overall cardinality.
+      summary: Global cardinality is approaching its limit.
+    expr: |
+      (
+        resource_state_metrics_global_cardinality{job="resource-state-metrics"}
+        /
+        resource_state_metrics_global_cardinality_limit{job="resource-state-metrics"}
+      ) > 0.8
+      and
+      resource_state_metrics_global_cardinality_limit{job="resource-state-metrics"} > 0
+    for: 15m
+    labels:
+      severity: warning
