@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/iancoleman/strcase"
+	"github.com/kubernetes-sigs/resource-state-metrics/pkg/apis/resourcestatemetrics/v1alpha1"
 	"github.com/kubernetes-sigs/resource-state-metrics/pkg/resolver"
 	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -89,20 +90,10 @@ const (
 	MetricKindCounter MetricKind = "counter"
 )
 
-// ResolverType represents the type of resolver to use to evaluate the labelset expressions.
-type ResolverType string
-
-const (
-	// ResolverTypeCEL represents the CEL resolver, which uses Common Expression Language (CEL) to evaluate labelset expressions.
-	ResolverTypeCEL ResolverType = "cel"
-	// ResolverTypeUnstructured represents the unstructured resolver, which uses simple dot notation to resolve labelset expressions.
-	ResolverTypeUnstructured ResolverType = "unstructured"
-	// ResolverTypeNone represents the absence of a resolver.
-	ResolverTypeNone ResolverType = ""
-)
-
-// FamilyType represents a metric family (a group of metrics with the same name).
+// FamilyType represents a metric family with runtime state.
 type FamilyType struct {
+	v1alpha1.Family
+
 	logger              klog.Logger
 	celCostLimit        uint64
 	celTimeout          time.Duration
@@ -111,12 +102,6 @@ type FamilyType struct {
 	managedRMMName      string
 	createdAt           time.Time
 	cutoff              atomic.Bool
-	Name                string        `yaml:"name"`
-	Help                string        `yaml:"help"`
-	Metrics             []*MetricType `yaml:"metrics"`
-	Resolver            ResolverType  `yaml:"resolver,omitempty"`
-	Labels              []Label       `yaml:"labels,omitempty"`
-	CardinalityLimit    int64         `yaml:"cardinalityLimit,omitempty"`
 }
 
 // SetCutoff sets the cutoff state for this family.
@@ -165,10 +150,13 @@ func (f *FamilyType) buildMetricString(unstructured *unstructured.Unstructured) 
 
 	var sampleCount int64
 
-	for _, metric := range f.Metrics {
+	for i := range f.Metrics {
+		metric := &f.Metrics[i]
 		metricRawBuilder := getBuilder()
 
-		inheritMetricAttributes(f, metric)
+		// Combine metric labels with family labels
+		metricLabels := inheritMetricLabels(f, metric)
+
 		resolverInstance, err := f.resolver(metric.Resolver)
 		if err != nil {
 			logger.V(1).Error(fmt.Errorf("error resolving metric: %w", err), "skipping")
@@ -177,7 +165,7 @@ func (f *FamilyType) buildMetricString(unstructured *unstructured.Unstructured) 
 			continue
 		}
 
-		resolvedLabelKeys, resolvedLabelValues, resolvedExpandedLabelSet := resolveLabels(metric, resolverInstance, unstructured.Object)
+		resolvedLabelKeys, resolvedLabelValues, resolvedExpandedLabelSet := resolveLabels(metricLabels, resolverInstance, unstructured.Object)
 
 		resolvedValueMap := resolverInstance.Resolve(metric.Value, unstructured.Object)
 		resolvedValue, found := resolvedValueMap[metric.Value]
@@ -225,20 +213,21 @@ func (f *FamilyType) buildMetricString(unstructured *unstructured.Unstructured) 
 	return familyRawBuilder.String(), sampleCount
 }
 
-// inheritMetricAttributes applies family-level labels and resolver to the metric.
-func inheritMetricAttributes(f *FamilyType, metric *MetricType) {
-	metric.Labels = append(metric.Labels, f.Labels...)
+// inheritMetricAttributes applies family-level labels to the metric.
+// Returns a new slice combining metric labels with family labels.
+func inheritMetricLabels(f *FamilyType, metric *v1alpha1.Metric) []v1alpha1.Label {
+	return append(metric.Labels, f.Labels...)
 }
 
 // resolveLabels resolves label keys and values including handling of composite map/list structures.
-func resolveLabels(metric *MetricType, resolverInstance resolver.Resolver, obj map[string]interface{}) ([]string, []string, map[string][]string) {
+func resolveLabels(labels []v1alpha1.Label, resolverInstance resolver.Resolver, obj map[string]any) ([]string, []string, map[string][]string) {
 	var (
 		resolvedLabelKeys        []string
 		resolvedLabelValues      []string
 		resolvedExpandedLabelSet = make(map[string][]string)
 	)
 
-	for _, label := range metric.Labels {
+	for _, label := range labels {
 		resolvedLabelset := resolverInstance.Resolve(label.Value, obj)
 		// If the query is found in the resolved labelset, it means we are dealing with non-composite value(s).
 		// For e.g., consider:
@@ -403,16 +392,16 @@ func writeExpandedSamples(writeFunc func([]string, []string) error, labelKeys, l
 	return nil
 }
 
-func (f *FamilyType) resolver(inheritedResolver ResolverType) (resolver.Resolver, error) {
-	if inheritedResolver == ResolverTypeNone {
+func (f *FamilyType) resolver(inheritedResolver v1alpha1.ResolverType) (resolver.Resolver, error) {
+	if inheritedResolver == v1alpha1.ResolverTypeNone {
 		inheritedResolver = f.Resolver
 	}
 	switch inheritedResolver {
-	case ResolverTypeNone:
-		fallthrough // Default to Unstructured resolver.
-	case ResolverTypeUnstructured:
+	case v1alpha1.ResolverTypeNone:
+		return nil, fmt.Errorf("no resolver specified for family %q: must set resolver at store, family, or metric level", f.Name)
+	case v1alpha1.ResolverTypeUnstructured:
 		return resolver.NewUnstructuredResolver(f.logger), nil
-	case ResolverTypeCEL:
+	case v1alpha1.ResolverTypeCEL:
 		costLimit := f.celCostLimit
 		if costLimit == 0 {
 			costLimit = uint64(resolver.CELDefaultCostLimit)

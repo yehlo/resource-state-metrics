@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kubernetes-sigs/resource-state-metrics/internal"
 	"github.com/kubernetes-sigs/resource-state-metrics/pkg/apis/resourcestatemetrics/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -38,9 +37,9 @@ const (
 func LoadRMMsFromGoldenRules(ctx context.Context) ([]runtime.Object, error) {
 	var rmms []runtime.Object
 
-	files := GetGoldenRuleFiles([]internal.ResolverType{
-		internal.ResolverTypeUnstructured,
-		internal.ResolverTypeCEL,
+	files := GetGoldenRuleFiles([]v1alpha1.ResolverType{
+		v1alpha1.ResolverTypeUnstructured,
+		v1alpha1.ResolverTypeCEL,
 	})
 
 	for _, file := range files {

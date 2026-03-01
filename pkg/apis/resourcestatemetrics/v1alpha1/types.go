@@ -82,6 +82,150 @@ type ResourceMetricsMonitor struct {
 	Status            ResourceMetricsMonitorStatus `json:"status,omitempty"`
 }
 
+// ResolverType represents the type of resolver to use for label/value expressions.
+// +kubebuilder:validation:Enum=cel;unstructured;""
+type ResolverType string
+
+const (
+	// ResolverTypeCEL uses Common Expression Language (CEL) to evaluate expressions.
+	ResolverTypeCEL ResolverType = "cel"
+	// ResolverTypeUnstructured uses simple dot notation to resolve expressions.
+	ResolverTypeUnstructured ResolverType = "unstructured"
+	// ResolverTypeNone represents "inherit from parent" for Family/Metric resolver fields.
+	ResolverTypeNone ResolverType = ""
+)
+
+// Label directly associates a label name with its value expression.
+type Label struct {
+	// Name is the label name.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=128
+	Name string `json:"name"`
+
+	// Value is the expression to evaluate for this label's value.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Value string `json:"value"`
+}
+
+// Metric represents a single time series within a family.
+type Metric struct {
+	// Labels defines the label set for this metric.
+	// +optional
+	Labels []Label `json:"labels,omitempty"`
+
+	// Value is the expression to evaluate for the metric value.
+	// +kubebuilder:validation:Required
+	Value string `json:"value"`
+
+	// Resolver overrides the family/generator resolver for this metric.
+	// +optional
+	Resolver ResolverType `json:"resolver,omitempty"`
+}
+
+// Family represents a metric family (a group of metrics with the same name).
+type Family struct {
+	// Name is the metric family name (will be prefixed with kube_customresource_).
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=128
+	// +kubebuilder:validation:Pattern=`^[a-zA-Z_][a-zA-Z0-9_]*$`
+	Name string `json:"name"`
+
+	// Help is the help text for this metric family.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Help string `json:"help"`
+
+	// Metrics defines the individual metrics within this family.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinItems=1
+	Metrics []Metric `json:"metrics"`
+
+	// Resolver overrides the generator resolver for this family.
+	// +optional
+	Resolver ResolverType `json:"resolver,omitempty"`
+
+	// Labels defines additional labels to apply to all metrics in this family.
+	// +optional
+	Labels []Label `json:"labels,omitempty"`
+
+	// CardinalityLimit sets the maximum cardinality for this family (0 means unlimited).
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	CardinalityLimit int64 `json:"cardinalityLimit,omitempty"`
+}
+
+// Selectors defines label and field selectors for filtering resources.
+type Selectors struct {
+	// Label is a label selector for filtering resources.
+	// +optional
+	Label string `json:"label,omitempty"`
+
+	// Field is a field selector for filtering resources.
+	// +optional
+	Field string `json:"field,omitempty"`
+}
+
+// Store defines how to generate metrics for a specific resource type.
+type Store struct {
+	// Group is the API group of the resource (empty string for core resources).
+	// +optional
+	Group string `json:"group,omitempty"`
+
+	// Version is the API version of the resource.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Version string `json:"version"`
+
+	// Kind is the kind of the resource.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Kind string `json:"kind"`
+
+	// Resource is the plural resource name.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Resource string `json:"resource"`
+
+	// Selectors defines how to filter the resources to watch.
+	// +optional
+	Selectors Selectors `json:"selectors,omitempty"`
+
+	// Families defines the metric families to generate for this resource.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinItems=1
+	Families []Family `json:"families"`
+
+	// Resolver sets the default resolver for all families/metrics in this store.
+	// If not specified, must be set at the family or metric level.
+	// +optional
+	Resolver ResolverType `json:"resolver,omitempty"`
+
+	// Labels defines additional labels to apply to all metrics in this generator.
+	// +optional
+	Labels []Label `json:"labels,omitempty"`
+
+	// CardinalityLimit sets the maximum cardinality for this generator (0 means use default).
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	CardinalityLimit int64 `json:"cardinalityLimit,omitempty"`
+}
+
+// Configuration defines the metric generation configuration.
+type Configuration struct {
+	// Stores defines the resources to watch and the metrics to generate.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinItems=1
+	Stores []Store `json:"stores"`
+
+	// CardinalityLimit sets the maximum total cardinality for this RMM (0 means use global default).
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	CardinalityLimit int64 `json:"cardinalityLimit,omitempty"`
+}
+
 // ResourceMetricsMonitorSpec is the spec for a ResourceMetricsMonitor resource.
 type ResourceMetricsMonitorSpec struct {
 
@@ -89,7 +233,7 @@ type ResourceMetricsMonitorSpec struct {
 	// +required
 
 	// Configuration is the RSM configuration that generates metrics.
-	Configuration string `json:"configuration"`
+	Configuration Configuration `json:"configuration"`
 }
 
 // +kubebuilder:validation:Optional

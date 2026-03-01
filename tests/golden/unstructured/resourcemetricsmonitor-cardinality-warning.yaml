@@ -11,12 +11,13 @@ in:
     name: resourcemetricsmonitor-cardinality-warning
     namespace: default
   spec:
-    configuration: |
-      generators:
+    configuration:
+      stores:
         - group: "samplecontroller.k8s.io"
           version: "v1beta1"
           kind: "Bar"
           resource: "bars"
+          resolver: unstructured
           cardinalityLimit: 5
           families:
             - name: "cardinality_warning_test"

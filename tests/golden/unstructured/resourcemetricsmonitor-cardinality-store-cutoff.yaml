@@ -15,12 +15,13 @@ in:
     name: resourcemetricsmonitor-cardinality-store-cutoff
     namespace: default
   spec:
-    configuration: |
-      generators:
+    configuration:
+      stores:
         - group: "samplecontroller.k8s.io"
           version: "v1beta1"
           kind: "Bar"
           resource: "bars"
+          resolver: unstructured
           cardinalityLimit: 2
           families:
             - name: "cardinality_store_cutoff_test"

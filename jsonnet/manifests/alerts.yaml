@@ -28,17 +28,6 @@ groups:
     for: 15m
     labels:
       severity: warning
-  - alert: ResourceStateMetricsConfigParseErrors
-    annotations:
-      description: The ResourceMetricsMonitor {{ $labels.namespace }}/{{ $labels.name }} has configuration parsing errors. Check the configuration YAML syntax and schema.
-      summary: resource-state-metrics failed to parse a ResourceMetricsMonitor configuration.
-    expr: |
-      sum by (cluster, namespace, name) (
-        increase(resource_state_metrics_config_parse_errors_total{job="resource-state-metrics"}[15m])
-      ) > 0
-    for: 5m
-    labels:
-      severity: warning
   - alert: ResourceStateMetricsCELEvaluationErrors
     annotations:
       description: More than 10%% of CEL expression evaluations are failing. This indicates issues with CEL queries in ResourceMetricsMonitor configurations.

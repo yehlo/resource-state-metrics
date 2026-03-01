@@ -11,13 +11,14 @@ in:
     name: resourcemetricsmonitor-cardinality-high-limit
     namespace: default
   spec:
-    configuration: |
+    configuration:
       cardinalityLimit: 10000
-      generators:
+      stores:
         - group: "samplecontroller.k8s.io"
           version: "v1beta1"
           kind: "Bar"
           resource: "bars"
+          resolver: unstructured
           cardinalityLimit: 1000
           families:
             - name: "cardinality_high_limit_test"

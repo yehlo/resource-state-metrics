@@ -16,12 +16,13 @@ in:
     name: resourcemetricsmonitor-cardinality-family-cutoff
     namespace: default
   spec:
-    configuration: |
-      generators:
+    configuration:
+      stores:
         - group: "samplecontroller.k8s.io"
           version: "v1beta1"
           kind: "Bar"
           resource: "bars"
+          resolver: unstructured
           families:
             - name: "cardinality_family_cutoff_test"
               help: "Family cutoff test - limit 1"

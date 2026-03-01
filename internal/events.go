@@ -97,13 +97,6 @@ func (c *Controller) validateAndPrepareResource(ctx context.Context, o metav1.Ob
 		return nil, err
 	}
 
-	if updatedResource.Spec.Configuration == "" {
-		logger.Error(errors.New("configuration YAML is empty"), "cannot process the resource")
-		c.emitFailure(ctx, updatedResource, "Configuration YAML is empty")
-
-		return nil, errors.New("empty configuration")
-	}
-
 	return updatedResource, nil
 }
 
@@ -123,9 +116,7 @@ func (c *Controller) processEvent(ctx context.Context, stores *sync.Map, event s
 	}
 }
 
-func (c *Controller) processAddOrUpdate(ctx context.Context, stores *sync.Map, event string, resource *v1alpha1.ResourceMetricsMonitor) error {
-	logger := klog.FromContext(ctx)
-
+func (c *Controller) processAddOrUpdate(ctx context.Context, stores *sync.Map, _ string, resource *v1alpha1.ResourceMetricsMonitor) error {
 	stores.Delete(resource.GetUID())
 
 	configurerInstance := newConfigurer(
@@ -137,14 +128,6 @@ func (c *Controller) processAddOrUpdate(ctx context.Context, stores *sync.Map, e
 		*c.options.ResourceCardinalityDefault,
 		*c.options.CardinalityWarningRatio,
 	)
-	if err := configurerInstance.parse(resource.Spec.Configuration); err != nil {
-		logger.Error(fmt.Errorf("failed to parse configuration YAML: %w", err), "cannot process the resource")
-		c.emitFailure(ctx, resource, fmt.Sprintf("Failed to parse configuration YAML: %s", err))
-		c.configParseErrors.WithLabelValues(resource.GetNamespace(), resource.GetName()).Inc()
-		c.eventsProcessed.WithLabelValues(resource.GetNamespace(), resource.GetName(), event, "failed").Inc()
-
-		return err
-	}
 
 	configurerInstance.build(ctx, stores)
 	c.resourcesMonitored.WithLabelValues(resource.GetNamespace(), resource.GetName()).Set(1)

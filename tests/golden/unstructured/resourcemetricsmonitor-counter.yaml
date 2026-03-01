@@ -10,12 +10,13 @@ in:
     name: resourcemetricsmonitor-bars-counter
     namespace: default
   spec:
-    configuration: |
-      generators:
+    configuration:
+      stores:
         - group: "samplecontroller.k8s.io"
           version: "v1beta1"
           kind: "Bar"
           resource: "bars"
+          resolver: unstructured
           families:
             - name: "bars_total"
               help: "Total bars tracked"
@@ -73,12 +74,13 @@ in:
     name: resourcemetricsmonitor-foos-counter
     namespace: default
   spec:
-    configuration: |
-      generators:
+    configuration:
+      stores:
         - group: "samplecontroller.k8s.io"
           version: "v1alpha1"
           kind: "Foo"
           resource: "foos"
+          resolver: unstructured
           families:
             - name: "foos_replicas_total"
               help: "Total Foo replicas"

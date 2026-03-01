@@ -53,12 +53,14 @@ import (
 	"k8s.io/klog/v2"
 )
 
+// schemeOnce ensures scheme registration happens only once (thread-safe for parallel tests).
+var schemeOnce sync.Once
+
 // NOTE: When adding new metrics, consider revisiting the alerting mixins.
 type metrics struct {
 	requestDurationVec       *prometheus.HistogramVec
 	resourcesMonitored       *prometheus.GaugeVec
 	eventsProcessed          *prometheus.CounterVec
-	configParseErrors        *prometheus.CounterVec
 	celEvaluations           *prometheus.CounterVec
 	familyCardinality        *prometheus.GaugeVec
 	familyCardinalityLimit   *prometheus.GaugeVec
@@ -89,7 +91,9 @@ type Controller struct {
 // NewController returns a new controller instance.
 func NewController(ctx context.Context, options *options.Options, kubeClientset kubernetes.Interface, rsmClientset clientset.Interface, dynamicClientset dynamic.Interface) *Controller {
 	logger := klog.FromContext(ctx)
-	utilruntime.Must(rsmscheme.AddToScheme(scheme.Scheme))
+	schemeOnce.Do(func() {
+		utilruntime.Must(rsmscheme.AddToScheme(scheme.Scheme))
+	})
 
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartStructuredLogging(0)
@@ -164,12 +168,6 @@ func (c *Controller) Run(ctx context.Context, workers int) error {
 		Help:      "Total number of events processed by type and status.",
 	}, []string{"namespace", "name", "event_type", "status"})
 
-	c.configParseErrors = promauto.With(registry).NewCounterVec(prometheus.CounterOpts{
-		Namespace: namespace,
-		Name:      "config_parse_errors_total",
-		Help:      "Total number of configuration parsing errors.",
-	}, []string{"namespace", "name"})
-
 	c.celEvaluations = promauto.With(registry).NewCounterVec(prometheus.CounterOpts{
 		Namespace: namespace,
 		Name:      "cel_evaluations_total",
@@ -191,13 +189,13 @@ func (c *Controller) Run(ctx context.Context, workers int) error {
 	c.storeCardinality = promauto.With(registry).NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: namespace,
 		Name:      "store_cardinality",
-		Help:      "Current cardinality (number of time series) per store (generator).",
+		Help:      "Current cardinality (number of time series) per store.",
 	}, []string{"namespace", "name", "store"})
 
 	c.storeCardinalityLimit = promauto.With(registry).NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: namespace,
 		Name:      "store_cardinality_limit",
-		Help:      "Configured cardinality limit per store (generator). 0 means unlimited.",
+		Help:      "Configured cardinality limit per store. 0 means unlimited.",
 	}, []string{"namespace", "name", "store"})
 
 	c.resourceCardinality = promauto.With(registry).NewGaugeVec(prometheus.GaugeOpts{

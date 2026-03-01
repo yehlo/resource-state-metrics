@@ -18,7 +18,6 @@ package internal
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -26,27 +25,17 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
-	"sigs.k8s.io/yaml"
 )
 
 // configure defines behaviours for working with configuration(s).
 type configure interface {
-	// parse parses the given configuration.
-	parse(raw string) error
-
 	// build builds the given configuration.
 	build(ctx context.Context, stores *sync.Map)
 }
 
-// configuration defines the structured representation of a YAML configuration.
-type configuration struct {
-	Stores           []*StoreType `json:"generators"                 yaml:"generators"`
-	CardinalityLimit int64        `json:"cardinalityLimit,omitempty" yaml:"cardinalityLimit,omitempty"`
-}
-
-// configurer knows how to parse a YAML configuration.
+// configurer knows how to work with RMM configurations.
 type configurer struct {
-	configuration              configuration
+	configuration              v1alpha1.Configuration
 	dynamicClientset           dynamic.Interface
 	resource                   *v1alpha1.ResourceMetricsMonitor
 	celCostLimit               uint64
@@ -70,6 +59,7 @@ func newConfigurer(
 	cardinalityWarningRatio float64,
 ) *configurer {
 	return &configurer{
+		configuration:              resource.Spec.Configuration,
 		dynamicClientset:           dynamicClientset,
 		resource:                   resource,
 		celCostLimit:               celCostLimit,
@@ -80,41 +70,38 @@ func newConfigurer(
 	}
 }
 
-// parse unmarshals the raw YAML configuration.
-func (c *configurer) parse(raw string) error {
-	if err := yaml.Unmarshal([]byte(raw), &c.configuration); err != nil {
-		return fmt.Errorf("error unmarshalling configuration: %w", err)
-	}
-
-	return nil
-}
-
 // build constructs the metric stores from the parsed configuration.
 func (c *configurer) build(ctx context.Context, stores *sync.Map) {
 	builtStores := make([]*StoreType, 0, len(c.configuration.Stores))
-	for _, cfg := range c.configuration.Stores {
-		s := c.buildStoreFromConfig(ctx, cfg)
+	for i := range c.configuration.Stores {
+		s := c.buildStoreFromConfig(ctx, &c.configuration.Stores[i])
 		builtStores = append(builtStores, s)
 	}
 	stores.Store(c.resource.GetUID(), builtStores)
 }
 
-func (c *configurer) buildStoreFromConfig(ctx context.Context, cfg *StoreType) *StoreType {
-	gvkWithR := buildGVKR(cfg)
+func (c *configurer) buildStoreFromConfig(ctx context.Context, store *v1alpha1.Store) *StoreType {
+	gvkWithR := buildGVKR(store)
 
-	storeCardinalityLimit := cfg.CardinalityLimit
+	storeCardinalityLimit := store.CardinalityLimit
 	if storeCardinalityLimit <= 0 {
 		storeCardinalityLimit = c.resourceCardinalityDefault
+	}
+
+	// Build FamilyType slice directly from v1alpha1.Family (no conversion middleware)
+	families := make([]*FamilyType, len(store.Families))
+	for i := range store.Families {
+		families[i] = &FamilyType{Family: store.Families[i]}
 	}
 
 	return buildStore(
 		ctx,
 		c.dynamicClientset,
 		gvkWithR,
-		cfg.Families,
-		cfg.Selectors.Label, cfg.Selectors.Field,
-		cfg.Resolver,
-		cfg.Labels,
+		families,
+		store.Selectors.Label, store.Selectors.Field,
+		store.Resolver,
+		store.Labels,
 		c.celCostLimit,
 		c.celTimeout,
 		c.celEvaluations,
@@ -125,17 +112,17 @@ func (c *configurer) buildStoreFromConfig(ctx context.Context, cfg *StoreType) *
 	)
 }
 
-func buildGVKR(cfg *StoreType) gvkr {
+func buildGVKR(store *v1alpha1.Store) gvkr {
 	return gvkr{
 		GroupVersionKind: schema.GroupVersionKind{
-			Group:   cfg.Group,
-			Version: cfg.Version,
-			Kind:    cfg.Kind,
+			Group:   store.Group,
+			Version: store.Version,
+			Kind:    store.Kind,
 		},
 		GroupVersionResource: schema.GroupVersionResource{
-			Group:    cfg.Group,
-			Version:  cfg.Version,
-			Resource: cfg.Resource,
+			Group:    store.Group,
+			Version:  store.Version,
+			Resource: store.Resource,
 		},
 	}
 }

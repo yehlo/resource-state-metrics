@@ -20,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kubernetes-sigs/resource-state-metrics/pkg/apis/resourcestatemetrics/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -39,27 +40,21 @@ type StoreType struct {
 
 	cardinalityTracker *CardinalityTracker
 
-	// Configuration fields unmarshalled from YAML
-	Group     string `yaml:"group"`
-	Version   string `yaml:"version"`
-	Kind      string `yaml:"kind"`
-	Resource  string `yaml:"resource"`
-	Selectors struct {
-		Label string `yaml:"label,omitempty"`
-		Field string `yaml:"field,omitempty"`
-	} `yaml:"selectors,omitempty"`
-	Families         []*FamilyType `yaml:"families"`
-	Resolver         ResolverType  `yaml:"resolver,omitempty"`
-	Labels           []Label       `yaml:"labels,omitempty"`
-	CardinalityLimit int64         `yaml:"cardinalityLimit,omitempty"`
+	// Runtime configuration (uses v1alpha1 types directly)
+	Group    string
+	Version  string
+	Kind     string
+	Families []*FamilyType
+	Resolver v1alpha1.ResolverType
+	Labels   []v1alpha1.Label
 }
 
 func newStore(
 	logger klog.Logger,
 	headers []string,
 	families []*FamilyType,
-	resolver ResolverType,
-	labels []Label,
+	resolver v1alpha1.ResolverType,
+	labels []v1alpha1.Label,
 	celCostLimit uint64,
 	celTimeout time.Duration,
 ) *StoreType {
@@ -209,7 +204,7 @@ func (s *StoreType) generateMetricsForObject(obj *unstructured.Unstructured) met
 }
 
 func inheritFamilyConfiguration(f *FamilyType, s *StoreType) {
-	if f.Resolver == ResolverTypeNone {
+	if f.Resolver == v1alpha1.ResolverTypeNone {
 		f.Resolver = s.Resolver
 	}
 

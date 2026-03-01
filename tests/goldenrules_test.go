@@ -112,9 +112,9 @@ func TestGoldenRules(t *testing.T) {
 		t.Fatalf("Failed to start controller: %v", err)
 	}
 
-	for _, resolverType := range []internal.ResolverType{
-		internal.ResolverTypeUnstructured,
-		internal.ResolverTypeCEL,
+	for _, resolverType := range []v1alpha1.ResolverType{
+		v1alpha1.ResolverTypeUnstructured,
+		v1alpha1.ResolverTypeCEL,
 	} {
 		t.Run(string(resolverType), func(t *testing.T) {
 			t.Parallel()
@@ -213,9 +213,9 @@ func applyCRManifests(ctx context.Context, t *testing.T, f *framework.Framework)
 }
 
 // testResolver tests all golden rules for a specific resolver.
-func testResolver(ctx context.Context, t *testing.T, f *framework.Framework, resolverType internal.ResolverType) {
+func testResolver(ctx context.Context, t *testing.T, f *framework.Framework, resolverType v1alpha1.ResolverType) {
 	t.Helper()
-	files := framework.GetGoldenRuleFiles([]internal.ResolverType{resolverType})
+	files := framework.GetGoldenRuleFiles([]v1alpha1.ResolverType{resolverType})
 
 	if len(files) == 0 {
 		t.Fatalf("No golden rule files found")

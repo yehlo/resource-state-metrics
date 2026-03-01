@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/kubernetes-sigs/resource-state-metrics/pkg/apis/resourcestatemetrics/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -47,13 +48,15 @@ func TestFamilyType_rawFrom(t *testing.T) {
 		{
 			name: "non-empty family with CEL resolver",
 			family: &FamilyType{
-				Name: "test_family",
-				Help: "test_help",
-				Metrics: []*MetricType{
-					{
-						Labels:   []Label{{Name: "namespace", Value: "o.metadata.namespace"}, {Name: "name", Value: "o.metadata.name"}},
-						Value:    "42",
-						Resolver: ResolverTypeCEL,
+				Family: v1alpha1.Family{
+					Name: "test_family",
+					Help: "test_help",
+					Metrics: []v1alpha1.Metric{
+						{
+							Labels:   []v1alpha1.Label{{Name: "namespace", Value: "o.metadata.namespace"}, {Name: "name", Value: "o.metadata.name"}},
+							Value:    "42",
+							Resolver: v1alpha1.ResolverTypeCEL,
+						},
 					},
 				},
 			},
@@ -62,46 +65,36 @@ func TestFamilyType_rawFrom(t *testing.T) {
 		{
 			name: "non-empty family with unstructured resolver",
 			family: &FamilyType{
-				Name: "test_family",
-				Help: "test_help",
-				Metrics: []*MetricType{
-					{
-						Labels:   []Label{{Name: "namespace", Value: "metadata.namespace"}, {Name: "name", Value: "metadata.name"}},
-						Value:    "42",
-						Resolver: ResolverTypeUnstructured,
+				Family: v1alpha1.Family{
+					Name: "test_family",
+					Help: "test_help",
+					Metrics: []v1alpha1.Metric{
+						{
+							Labels:   []v1alpha1.Label{{Name: "namespace", Value: "metadata.namespace"}, {Name: "name", Value: "metadata.name"}},
+							Value:    "42",
+							Resolver: v1alpha1.ResolverTypeUnstructured,
+						},
 					},
 				},
 			},
 			expected: "kube_customresource_test_family{name=\"test-pod\",namespace=\"test-namespace\",group=\"\",version=\"v1\",kind=\"Pod\"} 42.000000\n",
 		},
 		{
-			name: "non-empty family with default (unstructured) resolver",
+			name: "non-empty family with no resolver (should error)",
 			family: &FamilyType{
-				Name: "test_family",
-				Help: "test_help",
-				Metrics: []*MetricType{
-					{
-						Labels:   []Label{{Name: "namespace", Value: "metadata.namespace"}, {Name: "name", Value: "metadata.name"}},
-						Value:    "42",
-						Resolver: ResolverTypeNone,
+				Family: v1alpha1.Family{
+					Name: "test_family",
+					Help: "test_help",
+					Metrics: []v1alpha1.Metric{
+						{
+							Labels:   []v1alpha1.Label{{Name: "namespace", Value: "metadata.namespace"}, {Name: "name", Value: "metadata.name"}},
+							Value:    "42",
+							Resolver: v1alpha1.ResolverTypeNone,
+						},
 					},
 				},
 			},
-			expected: "kube_customresource_test_family{name=\"test-pod\",namespace=\"test-namespace\",group=\"\",version=\"v1\",kind=\"Pod\"} 42.000000\n",
-		},
-		{
-			name: "non-empty family with no resolver (should default to unstructured)",
-			family: &FamilyType{
-				Name: "test_family",
-				Help: "test_help",
-				Metrics: []*MetricType{
-					{
-						Labels: []Label{{Name: "namespace", Value: "metadata.namespace"}, {Name: "name", Value: "metadata.name"}},
-						Value:  "42",
-					},
-				},
-			},
-			expected: "kube_customresource_test_family{name=\"test-pod\",namespace=\"test-namespace\",group=\"\",version=\"v1\",kind=\"Pod\"} 42.000000\n",
+			expected: "", // No resolver specified, should produce no metrics
 		},
 	}
 

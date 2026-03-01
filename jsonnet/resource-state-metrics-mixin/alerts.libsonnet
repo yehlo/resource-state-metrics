@@ -37,22 +37,6 @@
             },
           },
           {
-            alert: 'ResourceStateMetricsConfigParseErrors',
-            expr: |||
-              sum by (%(clusterLabel)s, namespace, name) (
-                increase(resource_state_metrics_config_parse_errors_total{%(resourceStateMetricsSelector)s}[15m])
-              ) > 0
-            ||| % $._config,
-            'for': '5m',
-            labels: {
-              severity: 'warning',
-            },
-            annotations: {
-              summary: 'resource-state-metrics failed to parse a ResourceMetricsMonitor configuration.',
-              description: 'The ResourceMetricsMonitor {{ $labels.namespace }}/{{ $labels.name }} has configuration parsing errors. Check the configuration YAML syntax and schema.',
-            },
-          },
-          {
             alert: 'ResourceStateMetricsCELEvaluationErrors',
             expr: |||
               (

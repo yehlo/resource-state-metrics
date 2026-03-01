@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/kubernetes-sigs/resource-state-metrics/pkg/apis/resourcestatemetrics/v1alpha1"
 	"github.com/prometheus/client_golang/prometheus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -64,8 +65,8 @@ func buildStore(
 	gvkWithR gvkr,
 	metricFamilies []*FamilyType,
 	labelSelector, fieldSelector string,
-	resolver ResolverType,
-	labels []Label,
+	resolver v1alpha1.ResolverType,
+	labels []v1alpha1.Label,
 	celCostLimit uint64,
 	celTimeout time.Duration,
 	celEvaluations *prometheus.CounterVec,
@@ -75,7 +76,6 @@ func buildStore(
 ) *StoreType {
 	logger := klog.FromContext(ctx)
 	listerwatcher := buildLW(ctx, dynamicClientset, labelSelector, fieldSelector, gvkWithR.GroupVersionResource)
-	resolver = ensureResolver(resolver)
 	// Propagate CEL limits, metrics, and RMM identity to all families before
 	// buildMetricHeaders so that family.createdAt is set when buildHeaders runs.
 	familyCreatedAt := nowTime()
@@ -89,6 +89,10 @@ func buildStore(
 	}
 	headers := buildMetricHeaders(metricFamilies)
 	s := newStore(logger, headers, metricFamilies, resolver, labels, celCostLimit, celTimeout)
+	gvk := gvkWithR.GroupVersionKind
+	s.Group = gvk.Group
+	s.Version = gvk.Version
+	s.Kind = gvk.Kind
 
 	cardinalityTracker := NewCardinalityTracker(storeCardinalityLimit, warningRatio)
 	for _, family := range metricFamilies {
@@ -110,14 +114,6 @@ func buildMetricHeaders(metricFamilies []*FamilyType) []string {
 	}
 
 	return headers
-}
-
-func ensureResolver(resolver ResolverType) ResolverType {
-	if resolver == ResolverTypeNone {
-		return ResolverTypeUnstructured
-	}
-
-	return resolver
 }
 
 func startReflector(ctx context.Context, lw *cache.ListWatch, gvkWithR gvkr, s *StoreType) {

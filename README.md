@@ -36,16 +36,13 @@ For more details, take a look at the [Makefile](Makefile) targets.
 
 ##### GA
 
-- [ ] Typed spec instead of the YAML blob currently used in the `ResourceMetricsMonitor` CRD.
 - [ ] [`Starlark`](https://github.com/google/starlark-go) resolver (for more demanding use-cases)
 
 ##### Post-GA
 
 - [ ] Register the repository on the K8s release machinery, also integrate the bot.
-- [ ] Add golden rules covering all CRS constructs.
 - [ ] Dynamic admission control for `ResourceMetricsMonitor` CRD.
-  - [ ] Replace the file blob with a defined set of fields, or,
-  - [ ] `unmarshal` and validate the file, as is, dunno how good that looks in the long term, I guess this depends on the push for defined fields primarily and how much we want that.
+- [ ] Add golden rules covering all CRS constructs.
 
 #### Done
 
@@ -62,7 +59,7 @@ For more details, take a look at the [Makefile](Makefile) targets.
 - [X] Meta-metrics for metric generation failures.
 - [X] Utilize fake client-set for all e2e tests.
 - [X] Add boilerplate headers automation.
-- [X] [`s/stores/generators`](https://github.com/kubernetes/enhancements/pull/4811#discussion_r2121842302)
+- [X] ~~[`s/stores/generators`](https://github.com/kubernetes/enhancements/pull/4811#discussion_r2121842302)~~ Reverted: "stores" is clearer terminology
 - [X] https://github.com/rexagod/resource-state-metrics/issues/1
 - [X] https://github.com/rexagod/resource-state-metrics/issues/6
 - [X] Print controller logs in the CI.
@@ -74,5 +71,6 @@ For more details, take a look at the [Makefile](Makefile) targets.
   - [X] Use an offline-preferred approach with heuristics and internal context?
   - [X] This will need to be reflected in the resource status (and tested outside of golden rules).
 - [X] Support testing status sub-resource in e2e tests (`.out`?).
+- [X] Typed spec instead of the YAML blob currently used in the `ResourceMetricsMonitor` CRD.
 
 ###### [License](./LICENSE)

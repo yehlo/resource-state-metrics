@@ -43,11 +43,10 @@ import (
 )
 
 // TestCardinalityMetrics tests cardinality telemetry metrics and status updates.
-// This test cannot run in parallel with other tests that use the framework
-// because they all register command-line flags via the same flag package.
 //
-//nolint:paralleltest // Cannot run in parallel due to shared flag registration
+//nolint:tparallel,paralleltest // Subtests share the same framework and must run sequentially
 func TestCardinalityMetrics(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 
 	// Create an RMM for testing cardinality metrics
@@ -62,23 +61,33 @@ func TestCardinalityMetrics(t *testing.T) {
 			UID:       uuid.NewUUID(),
 		},
 		Spec: v1alpha1.ResourceMetricsMonitorSpec{
-			Configuration: `
-generators:
-  - group: "samplecontroller.k8s.io"
-    version: "v1beta1"
-    kind: "Bar"
-    resource: "bars"
-    cardinalityLimit: 1000
-    families:
-      - name: "cardinality_telemetry_test"
-        help: "Test metric for cardinality telemetry"
-        cardinalityLimit: 500
-        metrics:
-          - labels:
-              - name: "name"
-                value: "metadata.name"
-            value: "1"
-`,
+			Configuration: v1alpha1.Configuration{
+				Stores: []v1alpha1.Store{
+					{
+						Group:            "samplecontroller.k8s.io",
+						Version:          "v1beta1",
+						Kind:             "Bar",
+						Resource:         "bars",
+						Resolver:         v1alpha1.ResolverTypeUnstructured,
+						CardinalityLimit: 1000,
+						Families: []v1alpha1.Family{
+							{
+								Name:             "cardinality_telemetry_test",
+								Help:             "Test metric for cardinality telemetry",
+								CardinalityLimit: 500,
+								Metrics: []v1alpha1.Metric{
+									{
+										Labels: []v1alpha1.Label{
+											{Name: "name", Value: "metadata.name"},
+										},
+										Value: "1",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 

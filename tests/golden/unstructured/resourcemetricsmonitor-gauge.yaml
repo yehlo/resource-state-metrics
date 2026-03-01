@@ -9,12 +9,13 @@ in:
     name: resourcemetricsmonitor-todo
     namespace: default
   spec:
-    configuration: |
-      generators:
+    configuration:
+      stores:
         - group: "samplecontroller.k8s.io"
           version: "v1beta1"
           kind: "Bar"
           resource: "bars"
+          resolver: unstructured
           families:
             - name: "bars_information"
               help: "Information about each Bar instance"

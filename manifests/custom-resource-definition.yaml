@@ -59,7 +59,205 @@ spec:
               configuration:
                 description: Configuration is the RSM configuration that generates
                   metrics.
-                type: string
+                properties:
+                  cardinalityLimit:
+                    description: CardinalityLimit sets the maximum total cardinality
+                      for this RMM (0 means use global default).
+                    format: int64
+                    minimum: 0
+                    type: integer
+                  stores:
+                    description: Stores defines the resources to watch and the metrics
+                      to generate.
+                    items:
+                      description: Store defines how to generate metrics for a specific
+                        resource type.
+                      properties:
+                        cardinalityLimit:
+                          description: CardinalityLimit sets the maximum cardinality
+                            for this generator (0 means use default).
+                          format: int64
+                          minimum: 0
+                          type: integer
+                        families:
+                          description: Families defines the metric families to generate
+                            for this resource.
+                          items:
+                            description: Family represents a metric family (a group
+                              of metrics with the same name).
+                            properties:
+                              cardinalityLimit:
+                                description: CardinalityLimit sets the maximum cardinality
+                                  for this family (0 means unlimited).
+                                format: int64
+                                minimum: 0
+                                type: integer
+                              help:
+                                description: Help is the help text for this metric
+                                  family.
+                                minLength: 1
+                                type: string
+                              labels:
+                                description: Labels defines additional labels to apply
+                                  to all metrics in this family.
+                                items:
+                                  description: Label directly associates a label name
+                                    with its value expression.
+                                  properties:
+                                    name:
+                                      description: Name is the label name.
+                                      maxLength: 128
+                                      minLength: 1
+                                      type: string
+                                    value:
+                                      description: Value is the expression to evaluate
+                                        for this label's value.
+                                      minLength: 1
+                                      type: string
+                                  required:
+                                  - name
+                                  - value
+                                  type: object
+                                type: array
+                              metrics:
+                                description: Metrics defines the individual metrics
+                                  within this family.
+                                items:
+                                  description: Metric represents a single time series
+                                    within a family.
+                                  properties:
+                                    labels:
+                                      description: Labels defines the label set for
+                                        this metric.
+                                      items:
+                                        description: Label directly associates a label
+                                          name with its value expression.
+                                        properties:
+                                          name:
+                                            description: Name is the label name.
+                                            maxLength: 128
+                                            minLength: 1
+                                            type: string
+                                          value:
+                                            description: Value is the expression to
+                                              evaluate for this label's value.
+                                            minLength: 1
+                                            type: string
+                                        required:
+                                        - name
+                                        - value
+                                        type: object
+                                      type: array
+                                    resolver:
+                                      description: Resolver overrides the family/generator
+                                        resolver for this metric.
+                                      enum:
+                                      - cel
+                                      - unstructured
+                                      - ""
+                                      type: string
+                                    value:
+                                      description: Value is the expression to evaluate
+                                        for the metric value.
+                                      type: string
+                                  required:
+                                  - value
+                                  type: object
+                                minItems: 1
+                                type: array
+                              name:
+                                description: Name is the metric family name (will
+                                  be prefixed with kube_customresource_).
+                                maxLength: 128
+                                minLength: 1
+                                pattern: ^[a-zA-Z_][a-zA-Z0-9_]*$
+                                type: string
+                              resolver:
+                                description: Resolver overrides the generator resolver
+                                  for this family.
+                                enum:
+                                - cel
+                                - unstructured
+                                - ""
+                                type: string
+                            required:
+                            - help
+                            - metrics
+                            - name
+                            type: object
+                          minItems: 1
+                          type: array
+                        group:
+                          description: Group is the API group of the resource (empty
+                            string for core resources).
+                          type: string
+                        kind:
+                          description: Kind is the kind of the resource.
+                          minLength: 1
+                          type: string
+                        labels:
+                          description: Labels defines additional labels to apply to
+                            all metrics in this generator.
+                          items:
+                            description: Label directly associates a label name with
+                              its value expression.
+                            properties:
+                              name:
+                                description: Name is the label name.
+                                maxLength: 128
+                                minLength: 1
+                                type: string
+                              value:
+                                description: Value is the expression to evaluate for
+                                  this label's value.
+                                minLength: 1
+                                type: string
+                            required:
+                            - name
+                            - value
+                            type: object
+                          type: array
+                        resolver:
+                          description: |-
+                            Resolver sets the default resolver for all families/metrics in this store.
+                            If not specified, must be set at the family or metric level.
+                          enum:
+                          - cel
+                          - unstructured
+                          - ""
+                          type: string
+                        resource:
+                          description: Resource is the plural resource name.
+                          minLength: 1
+                          type: string
+                        selectors:
+                          description: Selectors defines how to filter the resources
+                            to watch.
+                          properties:
+                            field:
+                              description: Field is a field selector for filtering
+                                resources.
+                              type: string
+                            label:
+                              description: Label is a label selector for filtering
+                                resources.
+                              type: string
+                          type: object
+                        version:
+                          description: Version is the API version of the resource.
+                          minLength: 1
+                          type: string
+                      required:
+                      - families
+                      - kind
+                      - resource
+                      - version
+                      type: object
+                    minItems: 1
+                    type: array
+                required:
+                - stores
+                type: object
             required:
             - configuration
             type: object

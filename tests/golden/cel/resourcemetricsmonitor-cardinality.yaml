@@ -11,8 +11,8 @@ in:
     name: resourcemetricsmonitor-cardinality-cel
     namespace: default
   spec:
-    configuration: |
-      generators:
+    configuration:
+      stores:
         - group: "samplecontroller.k8s.io"
           version: "v1beta1"
           kind: "Bar"

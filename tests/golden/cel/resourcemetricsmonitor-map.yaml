@@ -9,8 +9,8 @@ in:
     name: resourcemetricsmonitor-bars-conditions
     namespace: default
   spec:
-    configuration: |
-      generators:
+    configuration:
+      stores:
         - group: "samplecontroller.k8s.io"
           version: "v1beta1"
           kind: "Bar"
