@@ -230,27 +230,13 @@ func labelPrefixBuiltin(_ *starlark.Thread, _ *starlark.Builtin, args starlark.T
 		if !ok {
 			return nil, fmt.Errorf("label key must be a string, got %s", item[0].Type())
 		}
-		sanitized := sanitizeStarlarkLabelKey(string(key))
+		sanitized := metricutil.SanitizeLabelKey(string(key))
 		if err := result.SetKey(starlark.String(prefix+sanitized), item[1]); err != nil {
 			return nil, err
 		}
 	}
 
 	return result, nil
-}
-
-// sanitizeStarlarkLabelKey replaces non-alphanumeric characters (except _) with underscores.
-func sanitizeStarlarkLabelKey(key string) string {
-	var result []rune
-	for i, r := range key {
-		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || r == '_' || (r >= '0' && r <= '9' && i > 0) {
-			result = append(result, r)
-		} else {
-			result = append(result, '_')
-		}
-	}
-
-	return string(result)
 }
 
 // goToStarlark converts a Go value to a Starlark value.

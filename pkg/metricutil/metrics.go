@@ -55,3 +55,19 @@ func SupportedMetricKindsString() string {
 
 	return strings.Join(kinds, ", ")
 }
+
+// SanitizeLabelKey converts a string to a valid Prometheus label key.
+// It replaces non-alphanumeric characters (except underscore) with underscores.
+// If the first character is a digit, it's replaced with an underscore.
+func SanitizeLabelKey(key string) string {
+	var result strings.Builder
+	for i, r := range key {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || r == '_' || (r >= '0' && r <= '9' && i > 0) {
+			result.WriteRune(r)
+		} else {
+			result.WriteRune('_')
+		}
+	}
+
+	return result.String()
+}

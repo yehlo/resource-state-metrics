@@ -26,6 +26,7 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter"
+	"github.com/kubernetes-sigs/resource-state-metrics/pkg/metricutil"
 	"github.com/kubernetes-sigs/resource-state-metrics/pkg/options"
 	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -36,21 +37,6 @@ var (
 	CELDefaultCostLimit = options.CELDefaultCostLimit
 	CELDefaultTimeout   = options.CELDefaultTimeout
 )
-
-// sanitizeLabelKey replaces non-alphanumeric characters (except _) with underscores.
-// This ensures label keys are valid Prometheus label names.
-func sanitizeLabelKey(key string) string {
-	var result strings.Builder
-	for i, r := range key {
-		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || r == '_' || (r >= '0' && r <= '9' && i > 0) {
-			result.WriteRune(r)
-		} else {
-			result.WriteRune('_')
-		}
-	}
-
-	return result.String()
-}
 
 // CELResolver represents a resolver for CEL expressions.
 type CELResolver struct {
@@ -199,7 +185,7 @@ func (cr *CELResolver) createEnvironment() (*cel.Env, error) {
 
 // unixSecondsBinding implements the logic for the unixSeconds function, which
 // parses an RFC3339 timestamp string and returns its Unix seconds as a double.
-// For e.g., unixSeconds("2024-01-15T10:30:00Z") returns 1705315800.0
+// For e.g., unixSeconds("2024-01-15T10:30:00Z") returns 1705315800.0.
 func unixSecondsBinding(arg ref.Val) ref.Val {
 	s, ok := arg.Value().(string)
 	if !ok {
@@ -218,7 +204,7 @@ func unixSecondsBinding(arg ref.Val) ref.Val {
 
 // quantityBinding implements the logic for the quantity function, which parses
 // a Kubernetes resource quantity string and returns its value as a double.
-// For e.g., quantity("100m") returns 0.1; quantity("1Gi") returns 1073741824.0
+// For e.g., quantity("100m") returns 0.1; quantity("1Gi") returns 1073741824.0.
 func quantityBinding(arg ref.Val) ref.Val {
 	s, ok := arg.Value().(string)
 	if !ok {
@@ -240,7 +226,7 @@ func quantityBinding(arg ref.Val) ref.Val {
 // prefixed and sanitized for Prometheus label compatibility. Keys are
 // sanitized: non-alphanumeric characters (except _) are replaced with _.
 // For e.g., `labelPrefix({"app": "test", "env/type": "prod"}, "label_")`
-// returns `{"label_app": "test", "label_env_type": "prod"}`
+// returns `{"label_app": "test", "label_env_type": "prod"}`.
 func labelPrefixBinding(lhs, rhs ref.Val) ref.Val {
 	m, ok := lhs.Value().(map[string]any)
 	if !ok {
@@ -261,7 +247,7 @@ func labelPrefixBinding(lhs, rhs ref.Val) ref.Val {
 	}
 	result := make(map[string]string)
 	for k, v := range m {
-		sanitized := sanitizeLabelKey(k)
+		sanitized := metricutil.SanitizeLabelKey(k)
 		if vs, ok := v.(string); ok {
 			result[prefix+sanitized] = vs
 		} else {

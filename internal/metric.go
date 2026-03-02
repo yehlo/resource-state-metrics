@@ -33,16 +33,11 @@ func writeMetricTo(writer *strings.Builder, g, v, k, ns, name, resolvedValue str
 	return writeValue(writer, resolvedValue, kind)
 }
 
-// appendAutoLabels appends auto-injected labels: group, version, kind, name,
-// and namespace (only for namespaced resources where namespace is non-empty).
+// appendAutoLabels appends auto-injected labels: group, version, kind, name, namespace.
+// For cluster-scoped resources, namespace is an empty string.
 func appendAutoLabels(keys, values []string, g, v, k, ns, name string) ([]string, []string) {
-	keys = append(keys, "group", "version", "kind", "name")
-	values = append(values, g, v, k, name)
-	// Only add namespace label for namespaced resources
-	if ns != "" {
-		keys = append(keys, "namespace")
-		values = append(values, ns)
-	}
+	keys = append(keys, "group", "version", "kind", "name", "namespace")
+	values = append(values, g, v, k, name, ns)
 
 	return keys, values
 }

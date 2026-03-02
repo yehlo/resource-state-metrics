@@ -34,19 +34,19 @@ func TestWriteMetricTo(t *testing.T) {
 			name:                "empty label keys and values",
 			resolvedLabelKeys:   []string{},
 			resolvedLabelValues: []string{},
-			expected:            "{group=\"group\",version=\"version\",kind=\"kind\",name=\"test-name\"} 42.000000\n",
+			expected:            "{group=\"group\",version=\"version\",kind=\"kind\",name=\"test-name\",namespace=\"\"} 42.000000\n",
 		},
 		{
 			name:                "multiple label keys and values",
 			resolvedLabelKeys:   []string{"key1", "key2"},
 			resolvedLabelValues: []string{"value1", "value2"},
-			expected:            "{key1=\"value1\",key2=\"value2\",group=\"group\",version=\"version\",kind=\"kind\",name=\"test-name\"} 42.000000\n",
+			expected:            "{key1=\"value1\",key2=\"value2\",group=\"group\",version=\"version\",kind=\"kind\",name=\"test-name\",namespace=\"\"} 42.000000\n",
 		},
 		{
 			name:                "escaped label values",
 			resolvedLabelKeys:   []string{"key1"},
 			resolvedLabelValues: []string{"value1\nvalue2"},
-			expected:            "{key1=\"value1\\nvalue2\",group=\"group\",version=\"version\",kind=\"kind\",name=\"test-name\"} 42.000000\n",
+			expected:            "{key1=\"value1\\nvalue2\",group=\"group\",version=\"version\",kind=\"kind\",name=\"test-name\",namespace=\"\"} 42.000000\n",
 		},
 	}
 
