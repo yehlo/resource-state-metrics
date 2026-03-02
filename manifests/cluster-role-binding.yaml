@@ -13,38 +13,18 @@
 # limitations under the License.
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
+kind: ClusterRoleBinding
 metadata:
   labels:
     app.kubernetes.io/component: exporter
     app.kubernetes.io/name: resource-state-metrics
     app.kubernetes.io/version: 0.0.1
   name: resource-state-metrics
-rules:
-- apiGroups:
-  - apiextensions.k8s.io
-  resources:
-  - customresourcedefinitions
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - authentication.k8s.io
-  resources:
-  - tokenreviews
-  verbs:
-  - create
-- apiGroups:
-  - authorization.k8s.io
-  resources:
-  - subjectaccessreviews
-  verbs:
-  - create
-- apiGroups:
-  - resource-state-metrics.instrumentation.k8s-sigs.io
-  resources:
-  - resourcemetricsmonitors
-  - resourcemetricsmonitors/status
-  verbs:
-  - '*'
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: resource-state-metrics
+subjects:
+- kind: ServiceAccount
+  name: resource-state-metrics
+  namespace: default

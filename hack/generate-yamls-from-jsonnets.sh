@@ -38,6 +38,7 @@ add_boilerplate() {
     mv "$tmp" "$file"
 }
 
+# NOTE: controller-gen generates the ClusterRole and CRD manifests, whereas jsonnet/ generates the rest.
 GENERATOR_JSONNET="
 local rsm = (import \"jsonnet/resource-state-metrics/resource-state-metrics.libsonnet\") + {
   name:: \"${PROJECT_NAME}\",
@@ -46,9 +47,7 @@ local rsm = (import \"jsonnet/resource-state-metrics/resource-state-metrics.libs
   image:: \"registry.k8s.io/${PROJECT_NAME}/${PROJECT_NAME}:v${VERSION}\",
 };
 {
-  \"cluster-role\": rsm.clusterRole,
   \"cluster-role-binding\": rsm.clusterRoleBinding,
-  \"custom-resource-definition\": rsm.customResourceDefinition,
   \"deployment\": rsm.deployment,
   \"service\": rsm.service,
   \"service-account\": rsm.serviceAccount,
@@ -56,7 +55,7 @@ local rsm = (import \"jsonnet/resource-state-metrics/resource-state-metrics.libs
 "
 
 # Convert to and from base64 to handle keys with special characters
-echo "Generating YAML manifests from jsonnet/"
+echo "Generating YAML manifests to jsonnet/manifests/"
 $JSONNET -e "$GENERATOR_JSONNET" | \
     jq -r 'to_entries[] | @base64' | \
     while read -r entry; do
@@ -67,19 +66,23 @@ $JSONNET -e "$GENERATOR_JSONNET" | \
         echo "  ${key}.yaml"
     done
 
-# Post-process manifests to ensure controller-gen and jsonnet outputs match.
-# Add labels to controller-gen cluster-role.yaml (jsonnet output has them).
-$YQ -i ".metadata.labels = {
-  \"app.kubernetes.io/component\": \"exporter\",
-  \"app.kubernetes.io/name\": \"${PROJECT_NAME}\",
-  \"app.kubernetes.io/version\": \"${VERSION}\"
-}" "manifests/cluster-role.yaml"
-# Add controller-gen version annotation to jsonnet CRD (controller-gen output has it).
-$YQ -i ".metadata.annotations.\"controller-gen.kubebuilder.io/version\" = \"${CONTROLLER_GEN_VERSION}\"" \
-    "${OUTPUT_DIR}/custom-resource-definition.yaml"
-
 # Generate alerts
 echo "  alerts.yaml"
 $JSONNET -e "(import 'jsonnet/resource-state-metrics-mixin/mixin.libsonnet').prometheusAlerts" | \
     $GOJSONTOYAML > "${OUTPUT_DIR}/alerts.yaml"
 add_boilerplate "${OUTPUT_DIR}/alerts.yaml"
+
+# Post-process controller-gen outputs in manifests/.
+# Add labels to cluster-role.yaml to match jsonnet conventions.
+$YQ -i ".metadata.labels = {
+  \"app.kubernetes.io/component\": \"exporter\",
+  \"app.kubernetes.io/name\": \"${PROJECT_NAME}\",
+  \"app.kubernetes.io/version\": \"${VERSION}\"
+}" "manifests/cluster-role.yaml"
+
+# Copy jsonnet-generated manifests to manifests/ for a complete deployment set
+echo "Copying jsonnet manifests to manifests/"
+for file in cluster-role-binding.yaml deployment.yaml service.yaml service-account.yaml; do
+    cp "${OUTPUT_DIR}/${file}" "manifests/${file}"
+    echo "  ${file}"
+done

@@ -138,16 +138,12 @@ generate: manifests codegen jsonnet_manifests
 verify_codegen:
 	@./hack/verify-codegen.sh
 
-.PHONY: verify_jsonnet_manifests
-verify_jsonnet_manifests: jsonnet_manifests
-	@git diff --exit-code $(JSONNET_MANIFESTS_DIR) || (echo "Jsonnet manifests are out of date. Run 'make jsonnet_manifests' and commit the changes." && exit 1)
-
-.PHONY: verify_manifests_match
-verify_manifests_match:
-	@./hack/verify-manifests-match.sh
+.PHONY: verify_manifests
+verify_manifests: jsonnet_manifests
+	@git diff --exit-code $(JSONNET_MANIFESTS_DIR) manifests/ || (echo "Manifests are out of date. Run 'make generate' and commit the changes." && exit 1)
 
 .PHONY: verify
-verify: verify_codegen verify_jsonnet_manifests verify_manifests_match
+verify: verify_codegen verify_manifests
 
 ############
 # Building #

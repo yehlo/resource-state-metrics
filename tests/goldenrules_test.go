@@ -133,8 +133,12 @@ func getCRDandNonCRDManifests(t *testing.T) ([]string, []string, error) {
 	}
 
 	// Fake client does not support certain resources OOTB.
+	// Also ignore deployment manifests (deployment.yaml, service.yaml, etc.)
 	ignoredManifestsByPrefix := map[string]struct{}{
-		"cluster-role": {},
+		"cluster-role":    {},
+		"deployment":      {},
+		"service":         {},
+		"service-account": {},
 	}
 
 	var (
