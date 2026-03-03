@@ -128,7 +128,7 @@ func (m *GlobalCardinalityManager) CheckThresholds(uid types.UID, resourceThresh
 	if threshold > 0 {
 		ratio := float64(resourceCardinality) / float64(threshold)
 		switch {
-		case ratio >= 1.0:
+		case ratio > 1.0:
 			m.cutoffResources[uid] = true
 			violations = append(violations, ThresholdViolation{
 				Level:     ThresholdLevelResource,
@@ -155,7 +155,7 @@ func (m *GlobalCardinalityManager) CheckThresholds(uid types.UID, resourceThresh
 	// More sophisticated strategies (per-namespace isolation, etc.) could be added if needed.
 	if m.globalThreshold > 0 {
 		ratio := float64(m.globalTotal) / float64(m.globalThreshold)
-		if ratio >= 1.0 {
+		if ratio > 1.0 {
 			for r := range m.perResource {
 				m.cutoffResources[r] = true
 			}

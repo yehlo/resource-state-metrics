@@ -448,21 +448,29 @@ func (c *Controller) setCardinalityConditions(resource *v1alpha1.ResourceMetrics
 		}
 	}
 
-	// Set CardinalityCutoff condition
+	// Set CardinalityCutoff condition. When not cut off but a warning is active,
+	// the reason reflects that we are in the warning zone even though generation
+	// has not been halted.
 	if hasCutoff {
 		resource.Status.Set(resource, metav1.Condition{
 			Type:   v1alpha1.ConditionType[v1alpha1.ConditionTypeCardinalityCutoff],
 			Status: metav1.ConditionTrue,
 		})
 	} else {
+		reason := v1alpha1.ConditionReasonFalse[v1alpha1.ConditionTypeCardinalityCutoff]
+		if hasWarning {
+			reason = v1alpha1.ConditionReasonTrue[v1alpha1.ConditionTypeCardinalityWarning]
+		}
 		resource.Status.Set(resource, metav1.Condition{
 			Type:   v1alpha1.ConditionType[v1alpha1.ConditionTypeCardinalityCutoff],
 			Status: metav1.ConditionFalse,
+			Reason: reason,
 		})
 	}
 
-	// Set CardinalityWarning condition
-	if hasWarning && !hasCutoff {
+	// Set CardinalityWarning condition. Warning persists even when cutoff is active —
+	// exceeding the threshold implies being above the warning level too.
+	if hasWarning || hasCutoff {
 		resource.Status.Set(resource, metav1.Condition{
 			Type:   v1alpha1.ConditionType[v1alpha1.ConditionTypeCardinalityWarning],
 			Status: metav1.ConditionTrue,

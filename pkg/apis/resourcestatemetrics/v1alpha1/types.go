@@ -323,6 +323,12 @@ func (status *ResourceMetricsMonitorStatus) Set(
 		message = ConditionMessageFalse[conditionTypeNumeric]
 	}
 
+	// Allow the caller to override the default reason (e.g. CardinalityCutoff=False
+	// when a warning is active should carry "CardinalityWarning", not "CardinalityOK").
+	if condition.Reason != "" {
+		reason = condition.Reason
+	}
+
 	// Populate status fields.
 	condition.Reason = reason
 	condition.Message = message

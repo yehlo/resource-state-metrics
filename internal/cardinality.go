@@ -43,11 +43,11 @@ const (
 type ViolationSeverity string
 
 const (
-	// SeverityWarning indicates cardinality is at warning level (e.g., 80-99% of threshold).
+	// SeverityWarning indicates cardinality is at warning level (≥80% of threshold, including exactly at threshold).
 	// Metric generation continues but a warning condition is set.
 	SeverityWarning ViolationSeverity = "warning"
-	// SeverityCutoff indicates cardinality has reached or exceeded the threshold (>=100%).
-	// Metric generation is stopped until cardinality drops below the threshold.
+	// SeverityCutoff indicates cardinality has strictly exceeded the threshold (>100%).
+	// Metric generation is stopped until cardinality drops back to or below the threshold.
 	SeverityCutoff ViolationSeverity = "cutoff"
 )
 
@@ -173,7 +173,7 @@ func (ct *CardinalityTracker) CheckThresholds() []ThresholdViolation {
 
 		ratio := float64(count) / float64(threshold)
 		switch {
-		case ratio >= 1.0:
+		case ratio > 1.0:
 			ct.cutoffFamilies[family] = true
 			violations = append(violations, ThresholdViolation{
 				Level:     ThresholdLevelFamily,
@@ -200,7 +200,7 @@ func (ct *CardinalityTracker) CheckThresholds() []ThresholdViolation {
 
 	if ct.storeThreshold > 0 {
 		ratio := float64(ct.storeTotal) / float64(ct.storeThreshold)
-		if ratio >= 1.0 {
+		if ratio > 1.0 {
 			for family := range ct.perFamily {
 				ct.cutoffFamilies[family] = true
 			}

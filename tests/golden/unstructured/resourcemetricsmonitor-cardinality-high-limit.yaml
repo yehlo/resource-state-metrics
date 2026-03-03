@@ -35,7 +35,7 @@ in:
           cardinalityLimit: 1000
           families:
             - name: "cardinality_high_limit_test"
-              help: "High limit test - should generate all metrics"
+              help: "High limit test; should generate all metrics"
               cardinalityLimit: 500
               metrics:
                 - labels:
@@ -43,7 +43,7 @@ in:
                       value: "spec.language"
                   value: "1"
 metrics:
-  - '# HELP kube_customresource_cardinality_high_limit_test High limit test - should generate all metrics'
+  - '# HELP kube_customresource_cardinality_high_limit_test High limit test; should generate all metrics'
   - '# TYPE kube_customresource_cardinality_high_limit_test gauge'
   - 'kube_customresource_cardinality_high_limit_test{language="csharp",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar",name="test-sample",namespace="default"} 1.000000'
   - 'kube_customresource_cardinality_high_limit_test{language="csharp",group="samplecontroller.k8s.io",version="v1beta1",kind="Bar",name="test-sample-secondary",namespace="default"} 1.000000'

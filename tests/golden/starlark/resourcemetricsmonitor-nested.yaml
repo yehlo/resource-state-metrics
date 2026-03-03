@@ -14,7 +14,7 @@
 # limitations under the License.
 name: resourcemetricsmonitor-starlark-nested
 description: >
-  Test for Starlark nested iteration - generates metrics from array fields.
+  Test for Starlark nested iteration, i.e., metric generation from array fields.
 in:
   apiVersion: resource-state-metrics.instrumentation.k8s-sigs.io/v1alpha1
   kind: ResourceMetricsMonitor

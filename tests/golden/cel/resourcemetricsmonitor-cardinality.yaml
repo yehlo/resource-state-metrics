@@ -31,11 +31,11 @@ in:
           kind: "Bar"
           resource: "bars"
           resolver: cel
-          cardinalityLimit: 1000
+          cardinalityLimit: 2
           families:
             - name: "cardinality_cel_test"
               help: "CEL cardinality test"
-              cardinalityLimit: 500
+              cardinalityLimit: 2
               metrics:
                 - labels:
                     - name: "language"
@@ -56,7 +56,7 @@ status:
       reason: EventHandlerSucceeded
     - type: CardinalityCutoff
       status: "False"
-      reason: CardinalityOK
+      reason: CardinalityWarning
     - type: CardinalityWarning
-      status: "False"
-      reason: CardinalityOK
+      status: "True"
+      reason: CardinalityWarning

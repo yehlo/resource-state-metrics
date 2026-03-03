@@ -59,7 +59,7 @@ status:
       reason: EventHandlerSucceeded
     - type: CardinalityCutoff
       status: "False"
-      reason: CardinalityOK
+      reason: CardinalityWarning
     - type: CardinalityWarning
       status: "True"
       reason: CardinalityWarning
