@@ -128,6 +128,8 @@ func NewController(ctx context.Context, options *options.Options, kubeClientset 
 }
 
 // Run starts the controller and blocks until the context is cancelled.
+//
+//nolint:funlen
 func (c *Controller) Run(ctx context.Context, workers int) error {
 	defer utilruntime.HandleCrash()
 	defer c.workqueue.ShutDown()

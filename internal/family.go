@@ -182,36 +182,12 @@ func (f *FamilyType) buildMetricString(unstructured *unstructured.Unstructured) 
 
 		resolvedLabelKeys, resolvedLabelValues, resolvedExpandedLabelSet := resolveLabels(metricLabels, resolverInstance, unstructured.Object)
 
-		resolvedValueMap := resolverInstance.Resolve(metric.Value, unstructured.Object)
-		resolvedValue, found := resolvedValueMap[metric.Value]
-		if !found {
-			// The value expression may have returned a list. Collect indexed
-			// values (keys of the form "fieldParent#N") in order and store
-			// them under the sentinel so writeMetricSamples emits one sample
-			// per element, coordinated with any label expansion.
-			var expandedValues []string
-			for i := 0; ; i++ {
-				suffix := "#" + strconv.Itoa(i)
-				var match string
-				for k, v := range resolvedValueMap {
-					if strings.HasSuffix(k, suffix) {
-						match = v
+		resolvedValue, ok := resolveMetricValue(resolverInstance, metric.Value, unstructured.Object, resolvedExpandedLabelSet)
+		if !ok {
+			logger.V(1).Error(fmt.Errorf("error resolving metric value %q", metric.Value), "skipping")
+			putBuilder(metricRawBuilder)
 
-						break
-					}
-				}
-				if match == "" {
-					break
-				}
-				expandedValues = append(expandedValues, match)
-			}
-			if len(expandedValues) == 0 {
-				logger.V(1).Error(fmt.Errorf("error resolving metric value %q", metric.Value), "skipping")
-				putBuilder(metricRawBuilder)
-
-				continue
-			}
-			resolvedExpandedLabelSet[expandedValueSentinel] = expandedValues
+			continue
 		}
 
 		samples, err := writeMetricSamplesWithCount(metricRawBuilder, f.Name, f.kind(), unstructured, resolvedLabelKeys, resolvedLabelValues, resolvedExpandedLabelSet, resolvedValue, logger)
@@ -288,6 +264,41 @@ func (f *FamilyType) buildMetricStringFromStarlark(unstr *unstructured.Unstructu
 // inheritMetricAttributes applies family-level labels to the metric.
 func inheritMetricLabels(f *FamilyType, metric *v1alpha1.Metric) []v1alpha1.Label {
 	return append(metric.Labels, f.Labels...)
+}
+
+// resolveMetricValue resolves the value expression for a single metric. If the
+// resolver returns a scalar, it is returned directly. If the resolver returns
+// a list (indexed keys like "fieldParent#N"), the values are collected in
+// order and stored in resolvedExpandedLabelSet under the sentinel key so that
+// writeMetricSamples can emit one sample per element.
+func resolveMetricValue(resolverInstance resolver.Resolver, valueExpr string, obj map[string]any, resolvedExpandedLabelSet map[string][]string) (string, bool) {
+	resolvedValueMap := resolverInstance.Resolve(valueExpr, obj)
+	if resolvedValue, found := resolvedValueMap[valueExpr]; found {
+		return resolvedValue, true
+	}
+
+	var expandedValues []string
+	for i := 0; ; i++ {
+		suffix := "#" + strconv.Itoa(i)
+		var match string
+		for k, v := range resolvedValueMap {
+			if strings.HasSuffix(k, suffix) {
+				match = v
+
+				break
+			}
+		}
+		if match == "" {
+			break
+		}
+		expandedValues = append(expandedValues, match)
+	}
+	if len(expandedValues) == 0 {
+		return "", false
+	}
+	resolvedExpandedLabelSet[expandedValueSentinel] = expandedValues
+
+	return "", true
 }
 
 // resolveLabels resolves label keys and values including handling of composite map/list structures.

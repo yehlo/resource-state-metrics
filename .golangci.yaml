@@ -129,8 +129,8 @@ linters:
             - pkg: golang.org/x/exp/slices
               desc: Use 'slices' instead.
     funlen:
-      lines: -1
-      statements: 85
+      lines: 60
+      statements: 50
     lll:
       line-length: 200
     forbidigo:
@@ -157,6 +157,7 @@ linters:
     rules:
       - linters:
           - lll
+          - funlen
         path: _test\.go
       - linters:
           - varnamelen

@@ -159,6 +159,8 @@ func (ct *CardinalityTracker) GetAllFamilyCardinalities() map[string]int64 {
 
 // CheckThresholds evaluates thresholds and returns any violations.
 // It also manages cutoff state based on threshold breaches.
+//
+//nolint:funlen
 func (ct *CardinalityTracker) CheckThresholds() []ThresholdViolation {
 	ct.mutex.Lock()
 	defer ct.mutex.Unlock()
