@@ -71,11 +71,14 @@ const (
 
 	CELDefaultCostLimit               = 1e5
 	CELDefaultTimeout                 = 5
-	DefaultGlobalCardinalityLimit     = 0      // 0 means unlimited
-	DefaultResourceCardinalityDefault = 100000 // 100k samples per RMM
-	DefaultCardinalityWarningRatio    = 0.8    // warn at 80% of threshold
-	StarlarkDefaultMaxSteps           = 100000 // 100k execution steps
-	StarlarkDefaultTimeout            = 5      // 5 seconds
+	DefaultGlobalCardinalityLimit     = 0      // unlimited
+	DefaultListenHost                 = "::"   // any IPv4/6 host address
+	DefaultResourceCardinalityDefault = 100000 // total allowed samples per RMM
+	DefaultCardinalityWarningRatio    = 0.8
+	StarlarkDefaultMaxSteps           = 100000
+	StarlarkDefaultTimeout            = 5
+
+	minStarlarkMaxSteps = 100
 )
 
 // Options represents the command-line Options.
@@ -124,13 +127,13 @@ func (o *Options) Read() {
 		//nolint:lll
 		registeredGlobalCardinalityLimit = flag.Int64(globalCardinalityLimitFlagName, DefaultGlobalCardinalityLimit, "Maximum total cardinality across all RMM resources. 0 means unlimited. When exceeded, all metric generation is cut off.")
 		registeredKubeconfig = flag.String(kubeconfigFlagName, os.Getenv("KUBECONFIG"), "Path to a kubeconfig. Only required if out-of-cluster.")
-		registeredMainHost = flag.String(mainHostFlagName, "::", "Host to expose main metrics on.")
+		registeredMainHost = flag.String(mainHostFlagName, DefaultListenHost, "Host to expose main metrics on.")
 		registeredMainPort = flag.Int(mainPortFlagName, 9999, "Port to expose main metrics on.")
 		registeredMasterURL = flag.String(masterURLFlagName, os.Getenv("KUBERNETES_MASTER"), "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 		registeredRatioGOMEMLIMIT = flag.Float64(ratioGOMEMLIMITFlagName, 0.9, "GOMEMLIMIT to memory quota ratio.")
 		//nolint:lll
 		registeredResourceCardinalityDefault = flag.Int64(resourceCardinalityDefaultFlagName, DefaultResourceCardinalityDefault, "Default cardinality limit per RMM resource. Can be overridden per-RMM via configuration YAML. 0 means unlimited.")
-		registeredSelfHost = flag.String(selfHostFlagName, "::", "Host to expose self (telemetry) metrics on.")
+		registeredSelfHost = flag.String(selfHostFlagName, DefaultListenHost, "Host to expose self (telemetry) metrics on.")
 		registeredSelfPort = flag.Int(selfPortFlagName, 9998, "Port to expose self (telemetry) metrics on.")
 		//nolint:lll
 		registeredStarlarkMaxSteps = flag.Int(starlarkMaxStepsFlagName, StarlarkDefaultMaxSteps, "Maximum number of Starlark execution steps. This limits computation to prevent infinite loops and runaway scripts. Increase if legitimate scripts hit the limit.")
@@ -138,6 +141,7 @@ func (o *Options) Read() {
 		registeredStarlarkTimeout = flag.Int(starlarkTimeoutFlagName, StarlarkDefaultTimeout, "Maximum time in seconds for Starlark script execution. This timeout enforces a wall-clock limit to prevent slow scripts from blocking metric generation.")
 		registeredVersion = flag.Bool(versionFlagName, false, "Print version information and quit")
 		registeredWorkers = flag.Int(workersFlagName, 2, "Number of workers processing managed resources in the workqueue.")
+
 		flag.Parse()
 
 		// Respect overrides, this also helps in testing without setting the same defaults in a bunch of places.
@@ -151,10 +155,13 @@ func (o *Options) Read() {
 
 				return
 			}
+
 			name := f.Name
 			overriderForOptionName := `RSM_` + strings.ReplaceAll(strings.ToUpper(name), "-", "_")
+
 			if value, ok := os.LookupEnv(overriderForOptionName); ok {
 				klog.V(1).Info(fmt.Sprintf("Overriding flag %s with %s=%s", name, overriderForOptionName, value))
+
 				err := flag.Set(name, value)
 				if err != nil {
 					panic(fmt.Sprintf("Failed to set flag %s to %s: %v", name, value, err))
@@ -191,6 +198,7 @@ func validateFlag(name, value string) error {
 		if err != nil {
 			return fmt.Errorf("invalid value for %s: %w", name, err)
 		}
+
 		if valueInt <= 0 || valueInt > 300 {
 			return fmt.Errorf("%s must be between 1 and 300 seconds", name)
 		}
@@ -199,6 +207,7 @@ func validateFlag(name, value string) error {
 		if err != nil {
 			return fmt.Errorf("invalid value for %s: %w", name, err)
 		}
+
 		if valueFloat < 0 || valueFloat > 1.0 {
 			return fmt.Errorf("%s must be between 0.0 and 1.0", name)
 		}
@@ -207,6 +216,7 @@ func validateFlag(name, value string) error {
 		if err != nil {
 			return fmt.Errorf("invalid value for %s: %w", name, err)
 		}
+
 		if valueInt <= 0 || valueInt > 60 {
 			return fmt.Errorf("%s must be between 1 and 60 seconds", name)
 		}
@@ -215,8 +225,9 @@ func validateFlag(name, value string) error {
 		if err != nil {
 			return fmt.Errorf("invalid value for %s: %w", name, err)
 		}
-		if valueInt < 1000 {
-			return fmt.Errorf("%s must be at least 1000", name)
+
+		if valueInt < minStarlarkMaxSteps {
+			return fmt.Errorf("%s must be at least %d", name, minStarlarkMaxSteps)
 		}
 	}
 

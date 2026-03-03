@@ -62,6 +62,7 @@ func (m *metricsWriter) writeFromStore(writer io.Writer, store *StoreType) error
 			if i >= len(metricFamilies) {
 				continue
 			}
+
 			if err := writeMetricFamily(writer, metricFamilies[i]); err != nil {
 				return err
 			}
@@ -83,6 +84,7 @@ func writeHeader(writer io.Writer, header string) error {
 	if header != "" && header != "\n" {
 		header += "\n"
 	}
+
 	_, err := writer.Write([]byte(header))
 
 	return err

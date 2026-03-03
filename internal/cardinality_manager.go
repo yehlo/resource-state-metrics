@@ -69,6 +69,7 @@ func (m *GlobalCardinalityManager) DeleteResource(uid types.UID) {
 		m.globalTotal -= cardinality
 		delete(m.perResource, uid)
 	}
+
 	delete(m.cutoffResources, uid)
 }
 
@@ -112,14 +113,13 @@ func (m *GlobalCardinalityManager) GetWarningRatio() float64 {
 	return m.warningRatio
 }
 
-// CheckThresholds evaluates global and resource thresholds and returns violations.
-//
 //nolint:funlen
 func (m *GlobalCardinalityManager) CheckThresholds(uid types.UID, resourceThreshold int64) []ThresholdViolation {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
 	var violations []ThresholdViolation
+
 	resourceCardinality := m.perResource[uid]
 
 	threshold := resourceThreshold
@@ -129,9 +129,11 @@ func (m *GlobalCardinalityManager) CheckThresholds(uid types.UID, resourceThresh
 
 	if threshold > 0 {
 		ratio := float64(resourceCardinality) / float64(threshold)
+
 		switch {
 		case ratio > 1.0:
 			m.cutoffResources[uid] = true
+
 			violations = append(violations, ThresholdViolation{
 				Level:     ThresholdLevelResource,
 				Name:      "resource",
@@ -161,6 +163,7 @@ func (m *GlobalCardinalityManager) CheckThresholds(uid types.UID, resourceThresh
 			for r := range m.perResource {
 				m.cutoffResources[r] = true
 			}
+
 			violations = append(violations, ThresholdViolation{
 				Level:     ThresholdLevelGlobal,
 				Name:      "global",
@@ -194,6 +197,7 @@ func (m *GlobalCardinalityManager) IsResourceCutoff(uid types.UID) bool {
 func (m *GlobalCardinalityManager) SetResourceCutoff(uid types.UID, cutoff bool) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
+
 	m.cutoffResources[uid] = cutoff
 }
 
@@ -201,6 +205,7 @@ func (m *GlobalCardinalityManager) SetResourceCutoff(uid types.UID, cutoff bool)
 func (m *GlobalCardinalityManager) GetAllResourceCardinalities() map[types.UID]int64 {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
+
 	result := make(map[types.UID]int64, len(m.perResource))
 	maps.Copy(result, m.perResource)
 

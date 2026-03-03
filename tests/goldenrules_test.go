@@ -57,6 +57,7 @@ import (
 // TestGoldenRules tests all golden rules for all resolvers.
 func TestGoldenRules(t *testing.T) {
 	t.Parallel()
+
 	ctx := context.Background()
 
 	// Pre-load RMMs from golden rules to work around the fact that fake clients
@@ -127,6 +128,7 @@ func TestGoldenRules(t *testing.T) {
 // getCRDandNonCRDManifests retrieves all CRD and non-CRD manifest file paths from the specified directories.
 func getCRDandNonCRDManifests(t *testing.T) ([]string, []string, error) {
 	t.Helper()
+
 	manifestDirs := []string{
 		"manifests",
 		"../manifests",
@@ -186,6 +188,7 @@ func getCRDandNonCRDManifests(t *testing.T) ([]string, []string, error) {
 // applyCRDManifests applies only CRD manifests from the manifest directories.
 func applyCRDManifests(ctx context.Context, t *testing.T, f *framework.Framework) error {
 	t.Helper()
+
 	crdFiles, _, err := getCRDandNonCRDManifests(t)
 	if err != nil {
 		return fmt.Errorf("failed to get manifest files: %w", err)
@@ -203,6 +206,7 @@ func applyCRDManifests(ctx context.Context, t *testing.T, f *framework.Framework
 // applyCRManifests applies only CR manifests (non-CRD) from the manifest directories.
 func applyCRManifests(ctx context.Context, t *testing.T, f *framework.Framework) error {
 	t.Helper()
+
 	_, otherFiles, err := getCRDandNonCRDManifests(t)
 	if err != nil {
 		return fmt.Errorf("failed to get manifest files: %w", err)
@@ -220,6 +224,7 @@ func applyCRManifests(ctx context.Context, t *testing.T, f *framework.Framework)
 // testResolver tests all golden rules for a specific resolver.
 func testResolver(ctx context.Context, t *testing.T, f *framework.Framework, resolverType v1alpha1.ResolverType) {
 	t.Helper()
+
 	files := framework.GetGoldenRuleFiles([]v1alpha1.ResolverType{resolverType})
 
 	if len(files) == 0 {
@@ -239,6 +244,7 @@ func testResolver(ctx context.Context, t *testing.T, f *framework.Framework, res
 // testGoldenRule tests a single golden rule file.
 func testGoldenRule(ctx context.Context, t *testing.T, f *framework.Framework, filePath string) {
 	t.Helper()
+
 	goldenRule, err := framework.GoldenRuleFromYAML(ctx, filePath)
 	if err != nil {
 		t.Fatalf("Failed to load golden rule from %s: %v", filePath, err)
@@ -264,11 +270,13 @@ func testGoldenRule(ctx context.Context, t *testing.T, f *framework.Framework, f
 	if len(goldenRule.Metrics) == 0 {
 		t.Fatalf("Golden rule has no expected output metrics defined")
 	}
+
 	validateMetricsOutput(t, f, goldenRule.Metrics)
 
 	if goldenRule.Status == nil {
 		t.Fatalf("Golden rule has no expected status defined")
 	}
+
 	validateStatusOutput(ctx, t, f, goldenRule)
 }
 
@@ -304,6 +312,7 @@ func validateMetricsOutput(t *testing.T, f *framework.Framework, expectedMetricL
 	// to ignore other metrics emitted by the controller that aren't relevant to
 	// the specific golden rule being tested.
 	var familyNames []string
+
 	for _, line := range strings.Split(expectedMetrics, "\n") {
 		if strings.HasPrefix(line, "# TYPE ") {
 			if parts := strings.Fields(line); len(parts) >= 3 {

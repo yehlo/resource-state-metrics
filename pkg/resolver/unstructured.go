@@ -43,11 +43,13 @@ func NewUnstructuredResolver(logger klog.Logger) *UnstructuredResolver {
 func (ur *UnstructuredResolver) Resolve(query string, unstructuredObjectMap map[string]interface{}) map[string]string {
 	logger := ur.logger.WithValues("query", query)
 	gotResolved, found, err := unstructured.NestedFieldNoCopy(unstructuredObjectMap, strings.Split(query, ".")...)
+
 	if !found {
 		logger.V(2).Info("query fell back to default mapping (field not found, will be skipped at write time)", "query", query)
 
 		return map[string]string{query: query}
 	}
+
 	if err != nil {
 		logger.V(1).Info("ignoring resolution for query", "info", err)
 		logger.V(2).Info("query fell back to default mapping (will be skipped at write time)", "query", query)

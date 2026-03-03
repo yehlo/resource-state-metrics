@@ -44,9 +44,11 @@ func TestOptions_Read(t *testing.T) {
 	// Check if the flags were overridden by their corresponding environment variables.
 	o := NewOptions(klog.NewKlogr())
 	o.Read()
+
 	if *o.SelfPort != overriddenSelfPortNumber {
 		t.Fatalf("expected %d, got %d", overriddenSelfPortNumber, *o.SelfPort)
 	}
+
 	if *o.MainPort != originalMainPortNumber {
 		t.Fatalf("expected %d, got %d", originalMainPortNumber, *o.MainPort)
 	}

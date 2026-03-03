@@ -52,13 +52,17 @@ func writeLabels(writer *strings.Builder, keys, values []string) error {
 		writer.WriteString(separator)
 		writer.WriteString(keys[i])
 		writer.WriteString("=\"")
+
 		n, err := strings.NewReplacer("\\", `\\`, "\n", `\n`, "\"", `\"`).WriteString(writer, values[i])
 		if err != nil {
 			return fmt.Errorf("error writing metric after %d bytes: %w", n, err)
 		}
+
 		writer.WriteString("\"")
+
 		separator = ","
 	}
+
 	writer.WriteString("}")
 
 	return nil
@@ -66,18 +70,22 @@ func writeLabels(writer *strings.Builder, keys, values []string) error {
 
 func writeValue(writer *strings.Builder, value string, kind MetricKind) error {
 	writer.WriteByte(' ')
+
 	floatVal, err := strconv.ParseFloat(value, 64)
 	if err != nil {
 		return fmt.Errorf("error parsing metric value %q as float64: %w", value, err)
 	}
+
 	err = validateValue(floatVal, kind)
 	if err != nil {
 		return fmt.Errorf("invalid metric value %f for kind %s: %w", floatVal, kind, err)
 	}
+
 	n, err := fmt.Fprintf(writer, "%f", floatVal)
 	if err != nil {
 		return fmt.Errorf("error writing (float64) metric value after %d bytes: %w", n, err)
 	}
+
 	writer.WriteByte('\n')
 
 	return nil
@@ -88,6 +96,7 @@ func validateValue(floatVal float64, kind MetricKind) error {
 		if math.IsNaN(floatVal) {
 			return errors.New("counter value cannot be NaN")
 		}
+
 		if floatVal < 0 {
 			return fmt.Errorf("counter value %f cannot be negative", floatVal)
 		}

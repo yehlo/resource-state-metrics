@@ -135,6 +135,7 @@ func generatePeripheralMetric(familyRawBuilder *strings.Builder, familyName stri
 	if kind == MetricKindCounter {
 		createdSampleName := kubeCustomResourcePrefix + strings.TrimSuffix(familyName, "_total") + "_created"
 		createdValue := fmt.Sprintf("%f", float64(createdAt.UnixNano())/1e9)
+
 		familyRawBuilder.WriteString("# HELP " + createdSampleName + " Time at which " + kubeCustomResourcePrefix + familyName + " was created.")
 		familyRawBuilder.WriteString("\n# TYPE " + createdSampleName + " " + string(MetricKindCounter))
 		familyRawBuilder.WriteByte('\n')
@@ -196,7 +197,9 @@ func (f *FamilyType) buildMetricString(unstructured *unstructured.Unstructured) 
 
 			continue
 		}
+
 		sampleCount += samples
+
 		familyRawBuilder.WriteString(metricRawBuilder.String())
 		putBuilder(metricRawBuilder)
 	}
@@ -234,6 +237,7 @@ func (f *FamilyType) buildMetricStringFromStarlark(unstr *unstructured.Unstructu
 				labelKeys = append(labelKeys, sanitizeKey(k))
 				labelValues = append(labelValues, v)
 			}
+
 			sortLabels(labelKeys, labelValues)
 
 			// Format the metric value
@@ -254,6 +258,7 @@ func (f *FamilyType) buildMetricStringFromStarlark(unstr *unstructured.Unstructu
 
 				continue
 			}
+
 			sampleCount++
 		}
 	}
@@ -278,9 +283,12 @@ func resolveMetricValue(resolverInstance resolver.Resolver, valueExpr string, ob
 	}
 
 	var expandedValues []string
+
 	for i := 0; ; i++ {
 		suffix := "#" + strconv.Itoa(i)
+
 		var match string
+
 		for k, v := range resolvedValueMap {
 			if strings.HasSuffix(k, suffix) {
 				match = v
@@ -288,14 +296,18 @@ func resolveMetricValue(resolverInstance resolver.Resolver, valueExpr string, ob
 				break
 			}
 		}
+
 		if match == "" {
 			break
 		}
+
 		expandedValues = append(expandedValues, match)
 	}
+
 	if len(expandedValues) == 0 {
 		return "", false
 	}
+
 	resolvedExpandedLabelSet[expandedValueSentinel] = expandedValues
 
 	return "", true
@@ -336,7 +348,9 @@ func resolveLabels(labels []v1alpha1.Label, resolverInstance resolver.Resolver, 
 
 					continue
 				}
+
 				resolvedLabelValues = append(resolvedLabelValues, v)
+
 				if isMapExpansion {
 					// Map expansion: use the map key directly as the label name
 					resolvedLabelKeys = append(resolvedLabelKeys, sanitizeKey(k))
@@ -353,13 +367,16 @@ func resolveLabels(labels []v1alpha1.Label, resolverInstance resolver.Resolver, 
 }
 func sortLabels(keys, values []string) {
 	type kv struct{ k, v string }
+
 	pairs := make([]kv, len(keys))
 	for i := range keys {
 		pairs[i] = kv{keys[i], values[i]}
 	}
+
 	slices.SortFunc(pairs, func(a, b kv) int {
 		return strings.Compare(a.k, b.k)
 	})
+
 	for i, p := range pairs {
 		keys[i] = p.k
 		values[i] = p.v
@@ -392,13 +409,16 @@ func writeMetricSamplesWithCount(
 	delete(expanded, expandedValueSentinel)
 
 	var sampleCount int64
+
 	i := 0
 	writeMetric := func(k, v []string) error {
 		builder.WriteString(kubeCustomResourcePrefix + name)
+
 		currentValue := value
 		if i < len(expandedValues) {
 			currentValue = expandedValues[i]
 		}
+
 		i++
 		sampleCount++
 
@@ -414,6 +434,7 @@ func writeMetricSamplesWithCount(
 			kind,
 		)
 	}
+
 	if len(expanded) == 0 {
 		if len(expandedValues) == 0 {
 			if err := writeSingleSample(writeMetric, keys, values, logger); err != nil {
@@ -456,9 +477,11 @@ func writeExpandedSamples(writeFunc func([]string, []string) error, labelKeys, l
 
 	for k := range expanded {
 		labelKeys = append(labelKeys, k)
+
 		if len(expanded[k]) > seriesToGenerate {
 			seriesToGenerate = len(expanded[k])
 		}
+
 		slices.Sort(expanded[k])
 	}
 
@@ -473,6 +496,7 @@ func writeExpandedSamples(writeFunc func([]string, []string) error, labelKeys, l
 
 				continue
 			}
+
 			ephemeralLabelValues = append(ephemeralLabelValues, vs[0])
 			expanded[k] = vs[1:]
 		}
@@ -491,6 +515,7 @@ func (f *FamilyType) resolver(inheritedResolver v1alpha1.ResolverType) (resolver
 	if inheritedResolver == v1alpha1.ResolverTypeNone {
 		inheritedResolver = f.Resolver
 	}
+
 	switch inheritedResolver {
 	case v1alpha1.ResolverTypeNone:
 		return nil, fmt.Errorf("no resolver specified for family %q: must set resolver at store, family, or metric level", f.Name)
@@ -501,6 +526,7 @@ func (f *FamilyType) resolver(inheritedResolver v1alpha1.ResolverType) (resolver
 		if costLimit == 0 {
 			costLimit = uint64(resolver.CELDefaultCostLimit)
 		}
+
 		timeout := f.celTimeout
 		if timeout == 0 {
 			timeout = time.Duration(resolver.CELDefaultTimeout) * time.Second
@@ -548,7 +574,9 @@ func (f *FamilyType) buildPeripheralHeader() string {
 	if f.kind() != MetricKindCounter {
 		return ""
 	}
+
 	var b strings.Builder
+
 	generatePeripheralMetric(&b, f.Name, f.kind(), f.createdAt)
 
 	return b.String()

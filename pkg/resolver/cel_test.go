@@ -25,6 +25,7 @@ import (
 
 func TestNewCELResolver_Resolve(t *testing.T) {
 	t.Parallel()
+
 	unstructuredObjectMap := map[string]interface{}{
 		"metadata": map[string]interface{}{
 			"name":      "test-deployment",
@@ -145,9 +146,11 @@ func TestNewCELResolver_Resolve(t *testing.T) {
 	}
 
 	cr := NewCELResolver(klog.NewKlogr(), 10e5, 5*time.Second, nil, "test-ns", "test-rmm", "test-family")
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+
 			if got := cr.Resolve(tt.query, unstructuredObjectMap); !cmp.Equal(got, tt.want) {
 				t.Errorf("%s", cmp.Diff(got, tt.want))
 			}
@@ -157,6 +160,7 @@ func TestNewCELResolver_Resolve(t *testing.T) {
 
 func TestCELResolver_UnixSeconds(t *testing.T) {
 	t.Parallel()
+
 	tests := []struct {
 		name  string
 		obj   map[string]any
@@ -190,9 +194,11 @@ func TestCELResolver_UnixSeconds(t *testing.T) {
 	}
 
 	cr := NewCELResolver(klog.NewKlogr(), 10e5, 5*time.Second, nil, "test-ns", "test-rmm", "test-family")
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+
 			if got := cr.Resolve(tt.query, tt.obj); !cmp.Equal(got, tt.want) {
 				t.Errorf("%s", cmp.Diff(got, tt.want))
 			}
@@ -202,6 +208,7 @@ func TestCELResolver_UnixSeconds(t *testing.T) {
 
 func TestCELResolver_Quantity(t *testing.T) {
 	t.Parallel()
+
 	tests := []struct {
 		name  string
 		obj   map[string]any
@@ -247,9 +254,11 @@ func TestCELResolver_Quantity(t *testing.T) {
 	}
 
 	cr := NewCELResolver(klog.NewKlogr(), 10e5, 5*time.Second, nil, "test-ns", "test-rmm", "test-family")
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+
 			if got := cr.Resolve(tt.query, tt.obj); !cmp.Equal(got, tt.want) {
 				t.Errorf("%s", cmp.Diff(got, tt.want))
 			}
@@ -259,6 +268,7 @@ func TestCELResolver_Quantity(t *testing.T) {
 
 func TestCELResolver_LabelPrefix(t *testing.T) {
 	t.Parallel()
+
 	tests := []struct {
 		name  string
 		obj   map[string]any
@@ -286,9 +296,11 @@ func TestCELResolver_LabelPrefix(t *testing.T) {
 	}
 
 	cr := NewCELResolver(klog.NewKlogr(), 10e5, 5*time.Second, nil, "test-ns", "test-rmm", "test-family")
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+
 			if got := cr.Resolve(tt.query, tt.obj); !cmp.Equal(got, tt.want) {
 				t.Errorf("%s", cmp.Diff(got, tt.want))
 			}

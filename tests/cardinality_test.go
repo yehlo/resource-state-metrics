@@ -42,6 +42,7 @@ import (
 // TestCardinalityMetrics tests cardinality telemetry metrics and status updates.
 func TestCardinalityMetrics(t *testing.T) {
 	t.Parallel()
+
 	ctx := context.Background()
 
 	// Create an RMM for testing cardinality metrics

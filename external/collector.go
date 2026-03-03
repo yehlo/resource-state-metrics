@@ -48,6 +48,7 @@ type CollectorsType struct {
 func (ct *CollectorsType) SetKubeConfig(kubeconfig string) *CollectorsType {
 	ct.mu.Lock()
 	defer ct.mu.Unlock()
+
 	ct.kubeconfig = kubeconfig
 
 	return ct
@@ -57,6 +58,7 @@ func (ct *CollectorsType) SetKubeConfig(kubeconfig string) *CollectorsType {
 func (ct *CollectorsType) Register(c collectors) {
 	ct.mu.Lock()
 	defer ct.mu.Unlock()
+
 	ct.collectors = append(ct.collectors, c)
 }
 
@@ -64,11 +66,14 @@ func (ct *CollectorsType) Register(c collectors) {
 func (ct *CollectorsType) Build(ctx context.Context) {
 	ct.mu.Lock()
 	defer ct.mu.Unlock()
+
 	logger := klog.FromContext(ctx)
+
 	for _, c := range ct.collectors {
 		ct.builtCollectors = append(ct.builtCollectors, c.BuildCollector(ctx, ct.kubeconfig))
 		c.Register()
 	}
+
 	logger.V(0).Info("Registered external collectors", "collectors", ct.collectors)
 }
 
@@ -76,6 +81,7 @@ func (ct *CollectorsType) Build(ctx context.Context) {
 func (ct *CollectorsType) Write(w io.Writer) {
 	ct.mu.RLock()
 	defer ct.mu.RUnlock()
+
 	for _, c := range ct.builtCollectors {
 		mw := metricsstore.NewMetricsWriter(c)
 		_ = mw.WriteAll(w)

@@ -24,6 +24,7 @@ import (
 
 func TestWriteMetricTo(t *testing.T) {
 	t.Parallel()
+
 	tests := []struct {
 		name                string
 		resolvedLabelKeys   []string
@@ -53,10 +54,12 @@ func TestWriteMetricTo(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+
 			var writer strings.Builder
 			if err := writeMetricTo(&writer, "group", "version", "kind", "", "test-name", "42", tt.resolvedLabelKeys, tt.resolvedLabelValues, MetricKindDefault); err != nil {
 				t.Fatal(err)
 			}
+
 			if got := writer.String(); got != tt.expected {
 				t.Errorf("%s", cmp.Diff(got, tt.expected))
 			}

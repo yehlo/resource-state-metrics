@@ -25,6 +25,7 @@ import (
 
 func TestMetricsWriter_writeAllTo(t *testing.T) {
 	t.Parallel()
+
 	tests := []struct {
 		name     string
 		m        metricsWriter
@@ -100,10 +101,12 @@ func TestMetricsWriter_writeAllTo(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+
 			w := &bytes.Buffer{}
 			if err := tt.m.writeStores(w); err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
+
 			if got := w.String(); got != tt.expected {
 				t.Fatalf("%s", cmp.Diff(got, tt.expected))
 			}

@@ -35,6 +35,11 @@ import (
 	"k8s.io/klog/v2"
 )
 
+const (
+	// readHeaderTimeout bounds how long the server waits for request headers before closing the connection.
+	readHeaderTimeout = 5 * time.Second
+)
+
 // server defines behaviours for a Prometheus-based exposition server.
 type server interface {
 	// Build sets up the server with the given gatherer.
@@ -107,6 +112,7 @@ func (s *selfServer) build(ctx context.Context, client kubernetes.Interface, gat
 
 		return nil
 	}
+
 	metricsHandler := promhttp.HandlerFor(gatherer, promhttp.HandlerOpts{
 		ErrorLog:      s.promHTTPLogger,
 		ErrorHandling: promhttp.ContinueOnError,
@@ -121,7 +127,7 @@ func (s *selfServer) build(ctx context.Context, client kubernetes.Interface, gat
 	return &http.Server{
 		ErrorLog:          log.New(os.Stdout, s.source, log.LstdFlags|log.Lshortfile),
 		Handler:           mux,
-		ReadHeaderTimeout: 5 * time.Second,
+		ReadHeaderTimeout: readHeaderTimeout,
 		Addr:              s.addr,
 	}
 }
@@ -133,6 +139,7 @@ func (s *mainServer) build(ctx context.Context, client kubernetes.Interface, _ p
 
 	// Handle the metrics path.
 	var binarySemaphore sync.RWMutex
+
 	metricsHandler := func(generator func(w http.ResponseWriter)) http.HandlerFunc {
 		return func(writer http.ResponseWriter, request *http.Request) {
 			binarySemaphore.RLock()
@@ -154,6 +161,7 @@ func (s *mainServer) build(ctx context.Context, client kubernetes.Interface, _ p
 			if contentType.FormatType() != expfmt.TypeOpenMetrics {
 				contentType = expfmt.NewFormat(expfmt.TypeTextPlain)
 			}
+
 			writer.Header().Set("Content-Type", string(contentType))
 
 			// Generate metrics.
@@ -168,6 +176,7 @@ func (s *mainServer) build(ctx context.Context, client kubernetes.Interface, _ p
 
 				return true
 			}
+
 			err := newMetricsWriter(stores...).writeStores(w)
 			if err != nil {
 				logger.Error(err, "error writing metrics", "source", s.source)
@@ -195,7 +204,7 @@ func (s *mainServer) build(ctx context.Context, client kubernetes.Interface, _ p
 	return &http.Server{
 		ErrorLog:          log.New(os.Stdout, s.source, log.LstdFlags|log.Lshortfile),
 		Handler:           mux,
-		ReadHeaderTimeout: 5 * time.Second,
+		ReadHeaderTimeout: readHeaderTimeout,
 		Addr:              s.addr,
 	}
 }

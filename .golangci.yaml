@@ -27,6 +27,7 @@ linters:
     - decorder
     - depguard
     - dogsled
+    - dupl
     - dupword
     - durationcheck
     - errchkjson
@@ -67,6 +68,7 @@ linters:
     - makezero
     - mirror
     - misspell
+    - mnd
     - musttag
     - nakedret
     - nestif
@@ -106,17 +108,15 @@ linters:
     - varnamelen
     - wastedassign
     - whitespace
+    - wsl_v5
     - zerologlint
   disable:
-    - dupl
     - err113
     - exhaustruct
     - gochecknoglobals
     - ireturn
-    - mnd
     - testpackage
     - wrapcheck
-    - wsl
   settings:
     cyclop:
       max-complexity: 12
@@ -129,7 +129,7 @@ linters:
             - pkg: golang.org/x/exp/slices
               desc: Use 'slices' instead.
     funlen:
-      lines: 60
+      lines: 65
       statements: 50
     lll:
       line-length: 200
@@ -139,6 +139,20 @@ linters:
           msg: "use .V(n).Info() to attach a verbosity level; bare .Info() always logs regardless of -v"
         - pattern: '^regexp\.(MustCompile|Compile)$'
           msg: "compile regexes at package level (var foo = regexp.MustCompile(...)) to avoid repeated compilation in hot paths"
+    mnd:
+      # 0.9, 1e9: unit conversion constants.
+      # 2, 4, 10: klog V-level verbosity tiers (ignored-functions doesn't
+      # work for method chain arguments like logger.V(2).Info(...) in go-mnd v2).
+      ignored-numbers:
+        - '0.9'
+        - '1e9'
+        - '2'
+        - '4'
+        - '10'
+      ignored-functions:
+        - 'flag\..*'
+        - 'rate\.NewLimiter'
+        - 'make'
     perfsprint:
       strconcat: false
     varnamelen:
@@ -156,9 +170,20 @@ linters:
       - std-error-handling
     rules:
       - linters:
-          - lll
+          - dupl
           - funlen
+          - ireturn
+          - lll
+          - mnd
+          - wrapcheck
         path: _test\.go
+      - linters:
+          - mnd
+          - wrapcheck
+        path: ^tests/framework/
+      - linters:
+          - wrapcheck
+        path: ^pkg/resolver/
       - linters:
           - varnamelen
         path: ^tests/.*

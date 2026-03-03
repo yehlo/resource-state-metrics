@@ -79,6 +79,7 @@ func buildStore(
 	// Propagate CEL limits, metrics, and RMM identity to all families before
 	// buildMetricHeaders so that family.createdAt is set when buildHeaders runs.
 	familyCreatedAt := nowTime()
+
 	for _, family := range metricFamilies {
 		family.logger = logger.WithValues("family", family.Name)
 		family.createdAt = familyCreatedAt
@@ -88,6 +89,7 @@ func buildStore(
 		family.managedRMMNamespace = namespace
 		family.managedRMMName = name
 	}
+
 	headers := buildMetricHeaders(metricFamilies)
 	s := newStore(logger, headers, metricFamilies, resolver, labels, celCostLimit, celTimeout)
 	gvk := gvkWithR.GroupVersionKind
@@ -96,11 +98,13 @@ func buildStore(
 	s.Kind = gvk.Kind
 
 	cardinalityTracker := NewCardinalityTracker(storeCardinalityLimit, warningRatio)
+
 	for _, family := range metricFamilies {
 		if family.CardinalityLimit > 0 {
 			cardinalityTracker.SetFamilyThreshold(family.Name, family.CardinalityLimit)
 		}
 	}
+
 	s.SetCardinalityTracker(cardinalityTracker)
 
 	startReflector(ctx, listerwatcher, gvkWithR, s)

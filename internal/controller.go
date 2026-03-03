@@ -53,6 +53,13 @@ import (
 	"k8s.io/klog/v2"
 )
 
+const (
+	rateLimiterBaseDelay = 5 * time.Millisecond
+	rateLimiterMaxDelay  = 5 * time.Minute
+	rateLimiterQPS       = 50
+	rateLimiterBurst     = 300
+)
+
 // schemeOnce ensures scheme registration happens only once (thread-safe for parallel tests).
 var schemeOnce sync.Once
 
@@ -91,6 +98,7 @@ type Controller struct {
 // NewController returns a new controller instance.
 func NewController(ctx context.Context, options *options.Options, kubeClientset kubernetes.Interface, rsmClientset clientset.Interface, dynamicClientset dynamic.Interface) *Controller {
 	logger := klog.FromContext(ctx)
+
 	schemeOnce.Do(func() {
 		utilruntime.Must(rsmscheme.AddToScheme(scheme.Scheme))
 	})
@@ -100,11 +108,12 @@ func NewController(ctx context.Context, options *options.Options, kubeClientset 
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{
 		Interface: kubeClientset.CoreV1().Events(metav1.NamespaceNone),
 	})
+
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: version.ControllerName.String()})
 
 	ratelimiter := workqueue.NewTypedMaxOfRateLimiter(
-		workqueue.NewTypedItemExponentialFailureRateLimiter[[2]string](5*time.Millisecond, 5*time.Minute),
-		&workqueue.TypedBucketRateLimiter[[2]string]{Limiter: rate.NewLimiter(rate.Limit(50), 300)},
+		workqueue.NewTypedItemExponentialFailureRateLimiter[[2]string](rateLimiterBaseDelay, rateLimiterMaxDelay),
+		&workqueue.TypedBucketRateLimiter[[2]string]{Limiter: rate.NewLimiter(rate.Limit(rateLimiterQPS), rateLimiterBurst)},
 	)
 
 	controller := &Controller{
@@ -129,7 +138,7 @@ func NewController(ctx context.Context, options *options.Options, kubeClientset 
 
 // Run starts the controller and blocks until the context is cancelled.
 //
-//nolint:funlen
+//nolint:funlen // metric registration + server setup is a single cohesive startup sequence
 func (c *Controller) Run(ctx context.Context, workers int) error {
 	defer utilruntime.HandleCrash()
 	defer c.workqueue.ShutDown()
@@ -139,6 +148,7 @@ func (c *Controller) Run(ctx context.Context, workers int) error {
 	logger.V(4).Info("Waiting for informer caches to sync")
 
 	c.rsmInformerFactory.Start(ctx.Done())
+
 	if ok := cache.WaitForCacheSync(ctx.Done(), c.rsmInformerFactory.ResourceStateMetrics().V1alpha1().ResourceMetricsMonitors().Informer().HasSynced); !ok {
 		return stderrors.New("failed to wait for caches to sync")
 	}
@@ -237,6 +247,7 @@ func (c *Controller) Run(ctx context.Context, workers int) error {
 	main := newMainServer(mainAddr, *c.options.Kubeconfig, &c.stores, c.requestDurationVec).build(ctx, c.kubeclientset, registry)
 
 	logger.V(1).Info("Starting workers")
+
 	for range workers {
 		go wait.UntilWithContext(ctx, func(ctx context.Context) {
 			for c.processNextWorkItem(ctx) {
@@ -246,12 +257,14 @@ func (c *Controller) Run(ctx context.Context, workers int) error {
 
 	go func() {
 		logger.V(1).Info("Starting telemetry server on", "address", selfAddr)
+
 		if err := self.ListenAndServe(); err != nil {
 			logger.Error(err, "stopping telemetry server")
 		}
 	}()
 	go func() {
 		logger.V(1).Info("Starting main server on", "address", mainAddr)
+
 		if err := main.ListenAndServe(); err != nil {
 			logger.Error(err, "stopping main server")
 		}
@@ -259,9 +272,11 @@ func (c *Controller) Run(ctx context.Context, workers int) error {
 
 	<-ctx.Done()
 	logger.V(1).Info("Shutting down servers")
+
 	if err := self.Shutdown(ctx); err != nil {
 		logger.Error(err, "error shutting down telemetry server")
 	}
+
 	if err := main.Shutdown(ctx); err != nil {
 		logger.Error(err, "error shutting down main server")
 	}
@@ -289,17 +304,20 @@ func (c *Controller) updateHandler(logger klog.Logger) func(interface{}, interfa
 
 			return
 		}
+
 		newResource, ok := newI.(*v1alpha1.ResourceMetricsMonitor)
 		if !ok {
 			logger.Error(stderrors.New("failed to cast new object to ResourceMetricsMonitor"), "cannot handle update event")
 
 			return
 		}
+
 		if oldResource.ResourceVersion == newResource.ResourceVersion || reflect.DeepEqual(oldResource.Spec, newResource.Spec) {
 			logger.V(10).Info("Skipping event", "[-old +new]", cmp.Diff(oldResource, newResource))
 
 			return
 		}
+
 		logger.V(4).Info("Update event", "[-old +new]", cmp.Diff(oldResource.Spec.Configuration, newResource.Spec.Configuration))
 		c.enqueue(newI, updateEvent)
 	}
@@ -312,11 +330,13 @@ func (c *Controller) enqueue(obj interface{}, event eventType) {
 
 		return
 	}
+
 	c.workqueue.Add([2]string{key, event.String()})
 }
 
 func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 	logger := klog.FromContext(ctx)
+
 	objectWithEvent, shutdown := c.workqueue.Get()
 	if shutdown {
 		return false
@@ -324,19 +344,21 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 
 	err := func(objectWithEvent [2]string) error {
 		defer c.workqueue.Done(objectWithEvent)
+
 		key := objectWithEvent[0]
 		event := objectWithEvent[1]
+
 		if err := c.syncHandler(ctx, key, event); err != nil {
 			c.workqueue.AddRateLimited(objectWithEvent)
 
 			return fmt.Errorf("error syncing '%s': %s, requeuing", key, err.Error())
 		}
+
 		c.workqueue.Forget(objectWithEvent)
 		logger.V(4).Info("Synced", "key", key)
 
 		return nil
 	}(objectWithEvent)
-
 	if err != nil {
 		logger.Error(err, "error processing item")
 
@@ -349,16 +371,19 @@ func (c *Controller) processNextWorkItem(ctx context.Context) bool {
 func (c *Controller) syncHandler(ctx context.Context, key string, event string) error {
 	logger := klog.FromContext(ctx)
 	logger.V(4).Info("Syncing", "key", key, "event", event)
+
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		logger.Error(err, "invalid resource key", "key", key)
 
 		return nil
 	}
+
 	resource, err := c.rsmInformerFactory.ResourceStateMetrics().V1alpha1().ResourceMetricsMonitors().Lister().ResourceMetricsMonitors(namespace).Get(name)
 	if err != nil && !errors.IsNotFound(err) {
 		return fmt.Errorf("error getting ResourceMetricsMonitor %q: %w", klog.KRef(namespace, name), err)
 	}
+
 	if errors.IsNotFound(err) {
 		resource = &v1alpha1.ResourceMetricsMonitor{}
 		resource.SetName(name)
@@ -374,7 +399,9 @@ func (c *Controller) handleObject(ctx context.Context, objectI interface{}, even
 
 		return nil
 	}
+
 	var object metav1.Object
+
 	var ok bool
 	if object, ok = objectI.(metav1.Object); !ok {
 		tombstone, ok := objectI.(cache.DeletedFinalStateUnknown)
@@ -383,16 +410,20 @@ func (c *Controller) handleObject(ctx context.Context, objectI interface{}, even
 
 			return nil
 		}
+
 		object, ok = tombstone.Obj.(metav1.Object)
 		if !ok {
 			logger.Error(stderrors.New("error decoding object tombstone, invalid type"), "error handling object")
 
 			return nil
 		}
+
 		logger.V(1).Info("Recovered", "key", klog.KObj(object))
 	}
+
 	logger = klog.LoggerWithValues(klog.FromContext(ctx), "key", klog.KObj(object), "event", event)
 	logger.V(1).Info("Processing object")
+
 	switch o := object.(type) {
 	case *v1alpha1.ResourceMetricsMonitor:
 		return c.handleEvent(ctx, &c.stores, event, o)

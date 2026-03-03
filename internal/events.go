@@ -41,6 +41,12 @@ const (
 	addEvent eventType = iota
 	updateEvent
 	deleteEvent
+
+	// cardinalityPollInterval is how often the cardinality poller checks for store metrics before computing cardinality status.
+	// NOTE This should be small enough to catch high-cardinality scenarios in a timely manner, but not so small as to cause excessive API calls or CPU usage while waiting for metrics to appear.
+	cardinalityPollInterval = 500 * time.Millisecond
+	// cardinalityPollTimeout is the maximum time to wait for store metrics to appear before computing cardinality status anyway.
+	cardinalityPollTimeout = 5 * time.Second
 )
 
 func (e eventType) String() string {
@@ -139,15 +145,17 @@ func (c *Controller) processAddOrUpdate(ctx context.Context, stores *sync.Map, _
 
 	// Non-blocking wait to allow metrics to be generated before calculating cardinality.
 	go func() {
-		_ = wait.PollUntilContextTimeout(ctx, 100*time.Millisecond, 5*time.Second, true, func(_ context.Context) (bool, error) {
+		_ = wait.PollUntilContextTimeout(ctx, cardinalityPollInterval, cardinalityPollTimeout, true, func(_ context.Context) (bool, error) {
 			storesI, ok := stores.Load(resource.GetUID())
 			if !ok {
 				return false, nil
 			}
+
 			storesList, ok := storesI.([]*StoreType)
 			if !ok || len(storesList) == 0 {
 				return false, nil
 			}
+
 			for _, store := range storesList {
 				if store.cardinalityTracker != nil && store.cardinalityTracker.GetStoreTotal() > 0 {
 					return true, nil
@@ -156,6 +164,7 @@ func (c *Controller) processAddOrUpdate(ctx context.Context, stores *sync.Map, _
 
 			return false, nil
 		})
+
 		if err := c.updateCardinalityStatus(ctx, resource); err != nil {
 			klog.FromContext(ctx).Error(err, "failed to update cardinality status")
 		}
@@ -190,11 +199,13 @@ func (c *Controller) emitSuccess(ctx context.Context, monitor *v1alpha1.Resource
 	if err != nil {
 		return nil, fmt.Errorf("failed to get %s: %w", kObj, err)
 	}
+
 	resource.Status.Set(resource, metav1.Condition{
 		Type:    v1alpha1.ConditionType[v1alpha1.ConditionTypeProcessed],
 		Status:  statusBool,
 		Message: message,
 	})
+
 	resource, err = c.rsmClientset.ResourceStateMetricsV1alpha1().ResourceMetricsMonitors(resource.GetNamespace()).
 		UpdateStatus(ctx, resource, metav1.UpdateOptions{})
 	if err != nil {
@@ -214,11 +225,13 @@ func (c *Controller) emitFailure(ctx context.Context, monitor *v1alpha1.Resource
 
 		return
 	}
+
 	resource.Status.Set(resource, metav1.Condition{
 		Type:    v1alpha1.ConditionType[v1alpha1.ConditionTypeFailed],
 		Status:  metav1.ConditionTrue,
 		Message: message,
 	})
+
 	_, err = c.rsmClientset.ResourceStateMetricsV1alpha1().ResourceMetricsMonitors(resource.GetNamespace()).
 		UpdateStatus(ctx, resource, metav1.UpdateOptions{})
 	if err != nil {
@@ -235,13 +248,16 @@ func (c *Controller) updateMetadata(ctx context.Context, resource *v1alpha1.Reso
 		if err != nil {
 			return false, fmt.Errorf("failed to get %s: %w", kObj, err)
 		}
+
 		resource = gotResource.DeepCopy()
 
 		if resource.Labels == nil {
 			resource.Labels = make(map[string]string)
 		}
+
 		resource.Labels["app.kubernetes.io/managed-by"] = version.ControllerName.String()
 		revisionSHA := revisionSHARegex.FindStringSubmatch(version.Version())
+
 		if len(revisionSHA) > 1 {
 			resource.Labels["app.kubernetes.io/version"] = revisionSHA[1]
 		} else {
@@ -309,6 +325,7 @@ func (c *Controller) aggregateStoreCardinality(stores []*StoreType, resource *v1
 			violations[i].RMMName = resource.GetName()
 			violations[i].RMMNamespace = resource.GetNamespace()
 		}
+
 		agg.violations = append(agg.violations, violations...)
 	}
 
@@ -348,11 +365,13 @@ func (c *Controller) updateCardinalityStatus(ctx context.Context, resource *v1al
 	agg := c.aggregateStoreCardinality(stores, resource)
 
 	c.globalCardinalityManager.UpdateResource(resource.GetUID(), agg.totalCardinality)
+
 	resourceViolations := c.globalCardinalityManager.CheckThresholds(resource.GetUID(), 0)
 	for i := range resourceViolations {
 		resourceViolations[i].RMMName = resource.GetName()
 		resourceViolations[i].RMMNamespace = resource.GetNamespace()
 	}
+
 	agg.violations = append(agg.violations, resourceViolations...)
 
 	c.updateCardinalityMetrics(resource, agg)
@@ -464,6 +483,7 @@ func (c *Controller) setCardinalityConditions(resource *v1alpha1.ResourceMetrics
 		if hasWarning {
 			reason = v1alpha1.ConditionReasonTrue[v1alpha1.ConditionTypeCardinalityWarning]
 		}
+
 		resource.Status.Set(resource, metav1.Condition{
 			Type:   v1alpha1.ConditionType[v1alpha1.ConditionTypeCardinalityCutoff],
 			Status: metav1.ConditionFalse,

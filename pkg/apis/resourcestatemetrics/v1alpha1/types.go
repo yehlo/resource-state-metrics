@@ -314,6 +314,7 @@ func (status *ResourceMetricsMonitorStatus) Set(
 ) {
 	// Prefix condition messages with consistent hints.
 	var message, reason string
+
 	conditionTypeNumeric := slices.Index(ConditionType, condition.Type)
 	if condition.Status == metav1.ConditionTrue {
 		reason = ConditionReasonTrue[conditionTypeNumeric]

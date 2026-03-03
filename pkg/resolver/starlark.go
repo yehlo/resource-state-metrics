@@ -66,6 +66,7 @@ func NewStarlarkResolver(logger klog.Logger, script string, timeout time.Duratio
 	if timeout == 0 {
 		timeout = time.Duration(StarlarkDefaultTimeout) * time.Second
 	}
+
 	if maxSteps == 0 {
 		maxSteps = StarlarkDefaultMaxSteps
 	}
@@ -101,6 +102,7 @@ func (sr *StarlarkResolver) Resolve(obj map[string]interface{}) ([]ResolvedFamil
 	}
 
 	resultChan := make(chan result, 1)
+
 	go func() {
 		families, err := sr.resolveWithSteps(thread, obj)
 		resultChan <- result{families: families, err: err}
@@ -131,6 +133,7 @@ func (sr *StarlarkResolver) resolveWithSteps(thread *starlark.Thread, obj map[st
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert object to Starlark: %w", err)
 	}
+
 	predeclared["obj"] = objValue
 
 	globals, err := starlark.ExecFileOptions(&syntax.FileOptions{
@@ -174,6 +177,7 @@ func quantityToFloat(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tupl
 // metricBuiltin creates a metric sample dict.
 func metricBuiltin(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	var labels *starlark.Dict
+
 	var value starlark.Float
 	if err := starlark.UnpackArgs("metric", args, kwargs, "labels", &labels, "value", &value); err != nil {
 		return nil, err
@@ -183,6 +187,7 @@ func metricBuiltin(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple,
 	if err := result.SetKey(starlark.String("labels"), labels); err != nil {
 		return nil, err
 	}
+
 	if err := result.SetKey(starlark.String("value"), value); err != nil {
 		return nil, err
 	}
@@ -193,6 +198,7 @@ func metricBuiltin(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple,
 // familyBuiltin creates a metric family dict.
 func familyBuiltin(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	var name, help, kind string
+
 	var samples *starlark.List
 	if err := starlark.UnpackArgs("family", args, kwargs, "name", &name, "help", &help, "kind", &kind, "samples", &samples); err != nil {
 		return nil, err
@@ -206,12 +212,15 @@ func familyBuiltin(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple,
 	if err := result.SetKey(starlark.String("name"), starlark.String(name)); err != nil {
 		return nil, err
 	}
+
 	if err := result.SetKey(starlark.String("help"), starlark.String(help)); err != nil {
 		return nil, err
 	}
+
 	if err := result.SetKey(starlark.String("kind"), starlark.String(kind)); err != nil {
 		return nil, err
 	}
+
 	if err := result.SetKey(starlark.String("samples"), samples); err != nil {
 		return nil, err
 	}
@@ -223,17 +232,20 @@ func familyBuiltin(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple,
 // Example: label_prefix({"app": "test", "env/type": "prod"}, "label_") => {"label_app": "test", "label_env_type": "prod"}.
 func labelPrefixBuiltin(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	var labelsDict *starlark.Dict
+
 	var prefix string
 	if err := starlark.UnpackArgs("label_prefix", args, kwargs, "labels", &labelsDict, "prefix", &prefix); err != nil {
 		return nil, err
 	}
 
 	result := starlark.NewDict(labelsDict.Len())
+
 	for _, item := range labelsDict.Items() {
 		key, ok := item[0].(starlark.String)
 		if !ok {
 			return nil, fmt.Errorf("label key must be a string, got %s", item[0].Type())
 		}
+
 		sanitized := metricutil.SanitizeLabelKey(string(key))
 		if err := result.SetKey(starlark.String(prefix+sanitized), item[1]); err != nil {
 			return nil, err
@@ -262,23 +274,28 @@ func goToStarlark(v interface{}) (starlark.Value, error) {
 		return starlark.String(val), nil
 	case []interface{}:
 		list := make([]starlark.Value, len(val))
+
 		for i, item := range val {
 			converted, err := goToStarlark(item)
 			if err != nil {
 				return nil, err
 			}
+
 			list[i] = converted
 		}
 
 		return starlark.NewList(list), nil
 	case map[string]interface{}:
 		dict := starlark.NewDict(len(val))
+
 		for k, v := range val {
 			key := starlark.String(k)
+
 			value, err := goToStarlark(v)
 			if err != nil {
 				return nil, err
 			}
+
 			if err := dict.SetKey(key, value); err != nil {
 				return nil, err
 			}
@@ -298,14 +315,17 @@ func extractFamilies(familiesVar starlark.Value) ([]ResolvedFamily, error) {
 	}
 
 	var result []ResolvedFamily
+
 	iter := familiesList.Iterate()
 	defer iter.Done()
+
 	var familyVal starlark.Value
 	for iter.Next(&familyVal) {
 		family, err := extractFamily(familyVal)
 		if err != nil {
 			return nil, err
 		}
+
 		result = append(result, family)
 	}
 
@@ -360,14 +380,17 @@ func extractSamples(samplesVal starlark.Value) ([]ResolvedSample, error) {
 	}
 
 	var result []ResolvedSample
+
 	iter := samplesList.Iterate()
 	defer iter.Done()
+
 	var sampleVal starlark.Value
 	for iter.Next(&sampleVal) {
 		sample, err := extractSample(sampleVal)
 		if err != nil {
 			return nil, err
 		}
+
 		result = append(result, sample)
 	}
 
@@ -415,11 +438,13 @@ func extractLabels(val starlark.Value) (map[string]string, error) {
 	}
 
 	labels := make(map[string]string)
+
 	for _, item := range dict.Items() {
 		key, ok := item[0].(starlark.String)
 		if !ok {
 			return nil, fmt.Errorf("label key must be a string, got %s", item[0].Type())
 		}
+
 		value := item[1]
 		switch v := value.(type) {
 		case starlark.String:
@@ -457,9 +482,11 @@ func getDictString(dict *starlark.Dict, key string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	if !found {
 		return "", fmt.Errorf("missing '%s' field", key)
 	}
+
 	s, ok := val.(starlark.String)
 	if !ok {
 		return "", fmt.Errorf("'%s' must be a string, got %s", key, val.Type())

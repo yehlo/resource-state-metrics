@@ -93,7 +93,9 @@ func NewInforming(ctx context.Context, initialObjects ...runtime.Object) *Framew
 			if !ok {
 				return nil, errors.New("object is not a CRD")
 			}
+
 			var keys []string
+
 			for _, version := range crd.Spec.Versions {
 				gvk := schema.GroupVersionKind{
 					Group:   crd.Spec.Group,
@@ -167,12 +169,14 @@ func (f *Framework) Start(ctx context.Context, workers int) error {
 	if err != nil {
 		return fmt.Errorf("failed to allocate main port: %w", err)
 	}
+
 	f.Options.MainPort = &mainPort
 
 	selfPort, err := getFreePort(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to allocate self port: %w", err)
 	}
+
 	f.Options.SelfPort = &selfPort
 
 	f.controller = internal.NewController(ctx, f.Options, f.kubeClient, f.RSMClient, f.dynamicClient)
@@ -256,7 +260,9 @@ func (f *Framework) ApplyCRUnstructured(ctx context.Context, customresource *uns
 	if customresource.GetUID() == "" {
 		customresource.SetUID(uuid.NewUUID())
 	}
+
 	gvk := customresource.GroupVersionKind()
+
 	resource, err := f.GetResourcePluralNameForGVK(gvk)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get resource for %s: %w", gvk, err)
@@ -269,19 +275,23 @@ func (f *Framework) ApplyCRUnstructured(ctx context.Context, customresource *uns
 	}
 
 	resourceClient := f.dynamicClient.Resource(gvr).Namespace(customresource.GetNamespace())
+
 	created, err := resourceClient.Create(ctx, customresource, metav1.CreateOptions{})
 	if err == nil {
 		return created, nil
 	}
+
 	if !apierrors.IsAlreadyExists(err) {
 		return nil, fmt.Errorf("failed to create CR %s/%s: %w", customresource.GetNamespace(), customresource.GetName(), err)
 	}
+
 	existing, err := resourceClient.Get(ctx, customresource.GetName(), metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get existing CR %s/%s: %w", customresource.GetNamespace(), customresource.GetName(), err)
 	}
 
 	customresource.SetResourceVersion(existing.GetResourceVersion())
+
 	updated, err := resourceClient.Update(ctx, customresource, metav1.UpdateOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to update CR %s/%s: %w", customresource.GetNamespace(), customresource.GetName(), err)
@@ -359,6 +369,7 @@ func (f *Framework) CreateCRDFromYAML(ctx context.Context, path string) (*apiext
 // GetIndexedCRDs returns all CRDs currently indexed by the CRD informer.
 func (f *Framework) GetIndexedCRDs() []*apiextensionsv1.CustomResourceDefinition {
 	var crds []*apiextensionsv1.CustomResourceDefinition
+
 	for _, obj := range f.crdInformer.GetIndexer().List() {
 		if crd, ok := obj.(*apiextensionsv1.CustomResourceDefinition); ok {
 			crds = append(crds, crd)
@@ -393,6 +404,7 @@ func (f *Framework) ToUnstructured(o runtime.Object) (*unstructured.Unstructured
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert to unstructured: %w", err)
 	}
+
 	unstructuredObj := &unstructured.Unstructured{Object: stringToInterfaceMap}
 	unstructuredObj.SetGroupVersionKind(o.GetObjectKind().GroupVersionKind())
 
@@ -417,11 +429,13 @@ func (f *Framework) FetchMainMetrics(ctx context.Context) (string, error) {
 // waitForControllerReady waits for the controller to be ready.
 func (f *Framework) waitForControllerReady(ctx context.Context) error {
 	timeout := time.After(10 * time.Second)
+
 	ticker := time.NewTicker(ShortTimeInterval)
 	defer ticker.Stop()
 
 	for {
 		port := *f.Options.MainPort
+
 		select {
 		case <-timeout:
 			return fmt.Errorf("timed out waiting for controller main server port %d to open", port)
@@ -430,6 +444,7 @@ func (f *Framework) waitForControllerReady(ctx context.Context) error {
 				Timeout: ShortTimeInterval,
 			}
 			addr := fmt.Sprintf("127.0.0.1:%d", port)
+
 			conn, err := dialer.DialContext(ctx, "tcp", addr)
 			if err == nil {
 				_ = conn.Close()
@@ -443,6 +458,7 @@ func (f *Framework) waitForControllerReady(ctx context.Context) error {
 // waitForCRDIndexed waits for a CRD to appear in the informer index.
 func (f *Framework) waitForCRDIndexed(crd *apiextensionsv1.CustomResourceDefinition) error {
 	timeout := time.After(LongTimeInterval)
+
 	ticker := time.NewTicker(ShortTimeInterval)
 	defer ticker.Stop()
 
@@ -457,6 +473,7 @@ func (f *Framework) waitForCRDIndexed(crd *apiextensionsv1.CustomResourceDefinit
 					Version: version.Name,
 					Kind:    crd.Spec.Names.Kind,
 				}
+
 				objs, err := f.crdInformer.GetIndexer().ByIndex(gvkIndexName, gvk.String())
 				if err == nil && len(objs) > 0 {
 					return nil
@@ -560,6 +577,7 @@ func (b *CRBuilder) WithLabel(key, value string) *CRBuilder {
 	if labels == nil {
 		labels = make(map[string]string)
 	}
+
 	labels[key] = value
 	b.cr.SetLabels(labels)
 
@@ -572,6 +590,7 @@ func (b *CRBuilder) WithAnnotation(key, value string) *CRBuilder {
 	if annotations == nil {
 		annotations = make(map[string]string)
 	}
+
 	annotations[key] = value
 	b.cr.SetAnnotations(annotations)
 
@@ -586,14 +605,17 @@ func (b *CRBuilder) Build() *unstructured.Unstructured {
 // ensureSafePath checks if the provided path is within the tests directory to prevent file system access outside of the intended scope.
 func ensureSafePath(path string) string {
 	cleanedPath := filepath.Clean(path)
+
 	absolutePath, err := filepath.Abs(cleanedPath)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to get absolute path: %v", err))
 	}
+
 	testsDir, err := filepath.Abs("..")
 	if err != nil {
 		panic(fmt.Sprintf("Failed to get absolute path of tests directory: %v", err))
 	}
+
 	if !strings.HasPrefix(absolutePath, testsDir) {
 		panic(fmt.Sprintf("Unsafe path detected: %s is outside of the tests directory", absolutePath))
 	}
@@ -607,10 +629,12 @@ func getFreePort(ctx context.Context) (int, error) {
 	defer cancel()
 
 	var lc net.ListenConfig
+
 	listener, err := lc.Listen(ctx, "tcp", "127.0.0.1:0")
 	if err != nil {
 		return 0, fmt.Errorf("failed to listen on free port: %w", err)
 	}
+
 	defer listener.Close()
 
 	addr, ok := listener.Addr().(*net.TCPAddr)

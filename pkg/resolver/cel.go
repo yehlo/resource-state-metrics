@@ -71,12 +71,19 @@ type costEstimator struct{}
 // costEstimator implements the ActualCostEstimator interface.
 var _ interpreter.ActualCostEstimator = costEstimator{}
 
+// CEL cost budgets for custom functions. Higher values reflect more complex operations.
+const (
+	celCostUnixSeconds uint64 = 10
+	celCostQuantity    uint64 = 10
+	celCostLabelPrefix uint64 = 20
+)
+
 // CallCost sets the runtime cost for CEL queries on a per-function basis.
 func (ce costEstimator) CallCost(function string, _ string, _ []ref.Val, _ ref.Val) *uint64 {
 	customFunctionsCosts := map[string]uint64{
-		"unixSeconds": 10,
-		"quantity":    10,
-		"labelPrefix": 20,
+		"unixSeconds": celCostUnixSeconds,
+		"quantity":    celCostQuantity,
+		"labelPrefix": celCostLabelPrefix,
 	}
 	estimatedCost := 1 + customFunctionsCosts[function]
 
@@ -91,6 +98,7 @@ func (cr *CELResolver) Resolve(query string, unstructuredObjectMap map[string]in
 		output map[string]string
 		err    error
 	}
+
 	resultChan := make(chan result, 1)
 
 	go func() {
@@ -105,12 +113,14 @@ func (cr *CELResolver) Resolve(query string, unstructuredObjectMap map[string]in
 	case res := <-resultChan:
 		if res.err != nil {
 			logger.V(1).Info("ignoring resolution for query", "info", res.err)
+
 			if cr.expressionEvaluationMetric != nil {
 				cr.expressionEvaluationMetric.WithLabelValues(cr.managedRMMNamespace, cr.managedRMMName, cr.familyName, "error").Inc()
 			}
 
 			return cr.defaultMapping(query)
 		}
+
 		if cr.expressionEvaluationMetric != nil {
 			cr.expressionEvaluationMetric.WithLabelValues(cr.managedRMMNamespace, cr.managedRMMName, cr.familyName, "success").Inc()
 		}
@@ -118,6 +128,7 @@ func (cr *CELResolver) Resolve(query string, unstructuredObjectMap map[string]in
 		return res.output
 	case <-timer.C:
 		logger.Error(fmt.Errorf("CEL query exceeded timeout of %v", cr.timeout), "ignoring resolution for query")
+
 		if cr.expressionEvaluationMetric != nil {
 			cr.expressionEvaluationMetric.WithLabelValues(cr.managedRMMNamespace, cr.managedRMMName, cr.familyName, "timeout").Inc()
 		}
@@ -150,6 +161,7 @@ func (cr *CELResolver) resolveWithTimeout(query string, unstructuredObjectMap ma
 
 	out, evalDetails, err := cr.evaluateProgram(program, unstructuredObjectMap)
 	cr.addCostLogging(logger, evalDetails)
+
 	if err != nil {
 		return nil, err
 	}
@@ -194,9 +206,11 @@ func unixSecondsBinding(arg ref.Val) ref.Val {
 	if !ok {
 		return types.NewErr("unixSeconds: expected string argument")
 	}
+
 	if s == "" {
 		return types.Double(0)
 	}
+
 	t, err := time.Parse(time.RFC3339, s)
 	if err != nil {
 		return types.NewErr("unixSeconds: failed to parse timestamp %q: %v", s, err)
@@ -213,9 +227,11 @@ func quantityBinding(arg ref.Val) ref.Val {
 	if !ok {
 		return types.NewErr("quantity: expected string argument")
 	}
+
 	if s == "" {
 		return types.Double(0)
 	}
+
 	q, err := resource.ParseQuantity(s)
 	if err != nil {
 		return types.NewErr("quantity: failed to parse quantity %q: %v", s, err)
@@ -231,26 +247,31 @@ func quantityBinding(arg ref.Val) ref.Val {
 // For e.g., `labelPrefix({"app": "test", "env/type": "prod"}, "label_")`
 // returns `{"label_app": "test", "label_env_type": "prod"}`.
 func labelPrefixBinding(lhs, rhs ref.Val) ref.Val {
-	m, ok := lhs.Value().(map[string]any)
+	labels, ok := lhs.Value().(map[string]any)
 	if !ok {
 		if refMap, ok := lhs.Value().(map[ref.Val]ref.Val); ok {
-			m = make(map[string]any)
+			labels = make(map[string]any)
+
 			for k, v := range refMap {
 				if ks, ok := k.Value().(string); ok {
-					m[ks] = v.Value()
+					labels[ks] = v.Value()
 				}
 			}
 		} else {
 			return types.NewErr("labelPrefix: expected map argument")
 		}
 	}
+
 	prefix, ok := rhs.Value().(string)
 	if !ok {
 		return types.NewErr("labelPrefix: expected string prefix")
 	}
+
 	result := make(map[string]string)
-	for k, v := range m {
+
+	for k, v := range labels {
 		sanitized := metricutil.SanitizeLabelKey(k)
+
 		if vs, ok := v.(string); ok {
 			result[prefix+sanitized] = vs
 		} else {
@@ -278,6 +299,7 @@ func (cr *CELResolver) addCostLogging(logger klog.Logger, evalDetails *cel.EvalD
 	if evalDetails != nil {
 		logger = logger.WithValues("queryCost", *evalDetails.ActualCost())
 	}
+
 	logger.V(4).Info("CEL query runtime cost")
 }
 
@@ -296,7 +318,9 @@ func (cr *CELResolver) processResult(query string, out ref.Val) map[string]strin
 			base = base[:dot] // drop method name: "o.spec.conditions"
 		}
 	}
+
 	resolvedFieldParent := base[strings.LastIndex(base, ".")+1:]
+
 	switch out.Type() {
 	case types.BoolType, types.DoubleType, types.IntType, types.StringType, types.UintType:
 		return map[string]string{query: fmt.Sprintf("%v", out.Value())}
@@ -326,6 +350,7 @@ func (cr *CELResolver) resolveList(out *ref.Val, fieldParent string) map[string]
 		for i, elem := range v {
 			native[i] = elem.Value()
 		}
+
 		cr.resolveListInner(native, m, fieldParent)
 	default:
 		cr.logger.V(1).Error(fmt.Errorf("unsupported list value type %T", (*out).Value()), "ignoring resolution for query")

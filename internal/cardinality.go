@@ -94,6 +94,7 @@ func NewCardinalityTracker(storeThreshold int64, warningRatio float64) *Cardinal
 func (ct *CardinalityTracker) SetFamilyThreshold(familyName string, threshold int64) {
 	ct.mutex.Lock()
 	defer ct.mutex.Unlock()
+
 	ct.familyThreshold[familyName] = threshold
 }
 
@@ -127,6 +128,7 @@ func (ct *CardinalityTracker) Delete(uid types.UID) {
 			ct.perFamily[family] -= count
 			ct.storeTotal -= count
 		}
+
 		delete(ct.perObject, uid)
 	}
 }
@@ -151,6 +153,7 @@ func (ct *CardinalityTracker) GetFamilyCardinality(familyName string) int64 {
 func (ct *CardinalityTracker) GetAllFamilyCardinalities() map[string]int64 {
 	ct.mutex.RLock()
 	defer ct.mutex.RUnlock()
+
 	result := make(map[string]int64, len(ct.perFamily))
 	maps.Copy(result, ct.perFamily)
 
@@ -159,8 +162,6 @@ func (ct *CardinalityTracker) GetAllFamilyCardinalities() map[string]int64 {
 
 // CheckThresholds evaluates thresholds and returns any violations.
 // It also manages cutoff state based on threshold breaches.
-//
-//nolint:funlen
 func (ct *CardinalityTracker) CheckThresholds() []ThresholdViolation {
 	ct.mutex.Lock()
 	defer ct.mutex.Unlock()
@@ -174,9 +175,11 @@ func (ct *CardinalityTracker) CheckThresholds() []ThresholdViolation {
 		}
 
 		ratio := float64(count) / float64(threshold)
+
 		switch {
 		case ratio > 1.0:
 			ct.cutoffFamilies[family] = true
+
 			violations = append(violations, ThresholdViolation{
 				Level:     ThresholdLevelFamily,
 				Name:      family,
@@ -206,6 +209,7 @@ func (ct *CardinalityTracker) CheckThresholds() []ThresholdViolation {
 			for family := range ct.perFamily {
 				ct.cutoffFamilies[family] = true
 			}
+
 			violations = append(violations, ThresholdViolation{
 				Level:     ThresholdLevelStore,
 				Name:      "store",
@@ -239,6 +243,7 @@ func (ct *CardinalityTracker) IsFamilyCutoff(familyName string) bool {
 func (ct *CardinalityTracker) SetFamilyCutoff(familyName string, cutoff bool) {
 	ct.mutex.Lock()
 	defer ct.mutex.Unlock()
+
 	ct.cutoffFamilies[familyName] = cutoff
 }
 
@@ -246,7 +251,9 @@ func (ct *CardinalityTracker) SetFamilyCutoff(familyName string, cutoff bool) {
 func (ct *CardinalityTracker) GetCutoffFamilies() []string {
 	ct.mutex.RLock()
 	defer ct.mutex.RUnlock()
+
 	var families []string
+
 	for family, cutoff := range ct.cutoffFamilies {
 		if cutoff {
 			families = append(families, family)
@@ -260,6 +267,7 @@ func (ct *CardinalityTracker) GetCutoffFamilies() []string {
 func (ct *CardinalityTracker) Reset() {
 	ct.mutex.Lock()
 	defer ct.mutex.Unlock()
+
 	ct.perFamily = make(map[string]int64)
 	ct.perObject = make(map[types.UID]map[string]int64)
 	ct.storeTotal = 0

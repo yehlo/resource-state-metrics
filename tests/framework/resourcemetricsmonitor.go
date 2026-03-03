@@ -48,9 +48,11 @@ func LoadRMMsFromGoldenRules(ctx context.Context) ([]runtime.Object, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to load golden rule from %s: %w", file, err)
 		}
+
 		if goldenRule.In == nil {
 			return nil, fmt.Errorf("golden rule %s has no input resource defined", file)
 		}
+
 		if goldenRule.In.GetKind() != ResourceMetricsMonitorKind {
 			return nil, fmt.Errorf("golden rule %s input resource is not a ResourceMetricsMonitor", file)
 		}
@@ -84,6 +86,7 @@ func (f *Framework) ApplyRMM(ctx context.Context, rmm *v1alpha1.ResourceMetricsM
 	}
 
 	obj := &v1alpha1.ResourceMetricsMonitor{}
+
 	err = f.FromUnstructured(appliedCR, obj)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert applied CR to RMM: %w", err)
@@ -100,6 +103,7 @@ func (f *Framework) ApplyRMMFromYAML(ctx context.Context, path string) (*v1alpha
 	}
 
 	obj := &v1alpha1.ResourceMetricsMonitor{}
+
 	err = f.FromUnstructured(appliedCR, obj)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert applied CR to RMM: %w", err)
@@ -125,6 +129,7 @@ func (f *Framework) WaitForRMMProcessed(ctx context.Context, namespace, name str
 			if err != nil {
 				continue
 			}
+
 			for _, cond := range rmm.Status.Conditions {
 				if cond.Type == v1alpha1.ConditionType[v1alpha1.ConditionTypeProcessed] {
 					return rmm, nil

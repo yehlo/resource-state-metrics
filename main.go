@@ -42,6 +42,7 @@ func main() {
 
 	// Set up flags.
 	klog.InitFlags(flag.CommandLine)
+
 	options := options.NewOptions(logger)
 	options.Read()
 
@@ -56,6 +57,7 @@ func main() {
 
 	// Set GOMEMLIMIT based on memory quota.
 	slogger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+
 	limit, err := memlimit.SetGoMemLimitWithOpts(
 		memlimit.WithLogger(slogger),
 		memlimit.WithRatio(*options.RatioGOMEMLIMIT),
@@ -78,16 +80,19 @@ func main() {
 		logger.Error(err, "Error building kubeconfig", "kubeconfig", *options.Kubeconfig)
 		klog.FlushAndExit(klog.ExitFlushTimeout, 1)
 	}
+
 	kubeClientset, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		logger.Error(err, "Error building kubernetes clientset")
 		klog.FlushAndExit(klog.ExitFlushTimeout, 1)
 	}
+
 	rsmClientset, err := clientset.NewForConfig(cfg)
 	if err != nil {
 		logger.Error(err, "Error building resource-state-metrics clientset")
 		klog.FlushAndExit(klog.ExitFlushTimeout, 1)
 	}
+
 	dynamicClientset, err := dynamic.NewForConfig(cfg)
 	if err != nil {
 		logger.Error(err, "Error building dynamic clientset")

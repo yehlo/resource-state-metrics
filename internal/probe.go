@@ -115,6 +115,7 @@ func genericProbe(ctx context.Context, p probe, logger klog.Logger, client kuber
 		got := client.CoreV1().RESTClient().Get().AbsPath(p.text()).Do(ctx)
 		if got.Error() != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
+
 			n, err := w.Write([]byte(http.StatusText(http.StatusServiceUnavailable)))
 			if err != nil {
 				logger.Error(err, fmt.Sprintf("error writing response after %d bytes", n), "probeType", p.text(), "source", p.server())
@@ -122,7 +123,9 @@ func genericProbe(ctx context.Context, p probe, logger klog.Logger, client kuber
 
 			return
 		}
+
 		w.WriteHeader(http.StatusOK)
+
 		n, err := w.Write([]byte(http.StatusText(http.StatusOK)))
 		if err != nil {
 			logger.Error(err, fmt.Sprintf("error writing response after %d bytes", n), "probeType", p.text(), "source", p.server())

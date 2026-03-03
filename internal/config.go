@@ -82,10 +82,12 @@ func newConfigurer(
 // build constructs the metric stores from the parsed configuration.
 func (c *configurer) build(ctx context.Context, stores *sync.Map) {
 	builtStores := make([]*StoreType, 0, len(c.configuration.Stores))
+
 	for i := range c.configuration.Stores {
 		s := c.buildStoreFromConfig(ctx, &c.configuration.Stores[i])
 		builtStores = append(builtStores, s)
 	}
+
 	stores.Store(c.resource.GetUID(), builtStores)
 }
 
@@ -99,6 +101,7 @@ func (c *configurer) buildStoreFromConfig(ctx context.Context, store *v1alpha1.S
 
 	// Build FamilyType slice directly from v1alpha1.Family (no conversion middleware)
 	logger := klog.Background()
+
 	families := make([]*FamilyType, len(store.Families))
 	for idx := range store.Families {
 		families[idx] = &FamilyType{Family: store.Families[idx]}
@@ -119,6 +122,7 @@ func (c *configurer) buildStoreFromConfig(ctx context.Context, store *v1alpha1.S
 			if starlarkCfg.Timeout > 0 {
 				timeout = time.Duration(starlarkCfg.Timeout) * time.Second
 			}
+
 			if starlarkCfg.MaxSteps > 0 {
 				maxSteps = starlarkCfg.MaxSteps
 			}

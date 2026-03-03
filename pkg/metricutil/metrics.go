@@ -61,6 +61,7 @@ func SupportedMetricKindsString() string {
 // If the first character is a digit, it's replaced with an underscore.
 func SanitizeLabelKey(key string) string {
 	var result strings.Builder
+
 	for i, r := range key {
 		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || r == '_' || (r >= '0' && r <= '9' && i > 0) {
 			result.WriteRune(r)
