@@ -65,11 +65,17 @@ jobs:
       - name: Run linter
         run: make lint
       - name: Lint commit (gitlint)
-        run: pre-commit run gitlint-ci --hook-stage manual
+        run: |
+          pre-commit run gitlint-ci --hook-stage manual --from-ref origin/${{ github.base_ref }} --to-ref HEAD
       - name: Lint commit (conventional)
         run: |
-          git log -1 --pretty=%B > /tmp/commit-msg
-          pre-commit run conventional-pre-commit --hook-stage commit-msg --commit-msg-filename /tmp/commit-msg
+          MERGE_BASE=$(git merge-base origin/${{ github.base_ref }} HEAD)
+          COMMITS=$(git rev-list $MERGE_BASE..HEAD)
+          for commit in $COMMITS; do
+            echo "Checking commit: $commit"
+            git log -1 --pretty=%B $commit > /tmp/commit-msg
+            pre-commit run conventional-pre-commit --hook-stage commit-msg --commit-msg-filename /tmp/commit-msg
+          done
   test-unit:
     needs: lint
     runs-on: ubuntu-latest
