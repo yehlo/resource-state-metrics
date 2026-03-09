@@ -12,7 +12,7 @@ commit_msg=$(head -1 "$1")
 type=$(echo "$commit_msg" | grep -oE '^[a-z]+' || true)
 
 if [[ -z "$type" ]]; then
-  echo "error: commit message must start with a type."
+  echo "error: commit message must start with a type followed by a colon (e.g., 'feat: add new feature'), got: '$type'"
   echo "       allowed types: $(echo "$ALLOWED_TYPES" | tr '|' ' ')"
   exit 1
 fi
