@@ -1,16 +1,13 @@
-## What does this PR do?
+## Summary
 
-<!-- A concise description of the change. -->
+<!-- Describe the changes this patch introduces, in as much detail as possible. -->
 
-## Why is this change needed?
+<!-- Does this patch address a corresponding issue? If so please uncomment the line below and specify the issue number. -->
 
-<!-- Motivation, linked issue, or context. -->
-
-Fixes #
+<!-- Fixes # -->
 
 ## Checklist
 
-- [ ] Tests added or updated
+- [ ] `make verify` passes
 - [ ] Documentation updated (if applicable)
-- [ ] `make verify_codegen` passes (if generated code was changed)
-- [ ] `make lint` passes
+- [ ] Tests added or updated (if applicable)

@@ -95,7 +95,8 @@ setup:
 	# Setup yamlfmt.
 	@$(GO) install github.com/google/yamlfmt/cmd/yamlfmt@$(YAMLFMT_VERSION)
 	# Setup pre-commit hooks.
-	@$(PIPX) install pre-commit >/dev/null
+	@$(PIPX) install pre-commit >/dev/null || \
+		(printf "\033[0;31mpipx is required to install pre-commit. Please install pipx, or an alternate pip package, for e.g., pip3, and run 'make setup' (with PIPX in the latter case, where pipx is not used) again.\033[0m\n" && exit 1)
 	@pre-commit install --hook-type commit-msg >/dev/null
 	# Setup commit message template.
 	@# --always-make: Ensure .gitmessage is always updated at setup.
@@ -136,14 +137,17 @@ generate: manifests codegen jsonnet_manifests
 
 .PHONY: verify_codegen
 verify_codegen:
-	@./hack/verify-codegen.sh
+	@./hack/verify-codegen.sh || (echo "\033[0;31mGenerated code is not up to date. Please run 'make codegen' to update it.\033[0m" && exit 1)
 
 .PHONY: verify_manifests
 verify_manifests: jsonnet_manifests
-	@git diff --exit-code $(JSONNET_MANIFESTS_DIR) manifests/ || (echo "Manifests are out of date. Run 'make generate' and commit the changes." && exit 1)
+	@(git diff --exit-code $(JSONNET_MANIFESTS_DIR) manifests/ && echo "Manifests are up to date.") || (echo "\033[0;31mManifests are not up to date. Please run 'make jsonnet_manifests' to update them.\033[0m" && exit 1)
+
+.PHONY: verify_generated
+verify_generated: verify_codegen verify_manifests
 
 .PHONY: verify
-verify: verify_codegen verify_manifests
+verify: lint test verify_generated
 
 ############
 # Building #
