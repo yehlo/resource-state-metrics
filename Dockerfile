@@ -14,7 +14,7 @@ FROM ubuntu:24.04
 
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
 
-RUN useradd -u 65534 -r nonroot
+RUN useradd -u 65534 -o -r nonroot
 
 WORKDIR /
 
@@ -24,4 +24,4 @@ EXPOSE 9998 9999
 
 USER nonroot
 
-CMD ["./resource-state-metrics"]
+ENTRYPOINT ["./resource-state-metrics"]
