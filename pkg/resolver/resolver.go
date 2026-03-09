@@ -23,4 +23,8 @@ type Resolver interface {
 	// NOTE: The returned map should have a single key:value (query:resolved[LabelValues,Value], of unit length) pair if the expression is resolved to a non-composite value.
 	// NOTE: The returned list representations should follow a `list_name#index` format.
 	Resolve(query string, unstructuredObjectMap map[string]interface{}) map[string]string
+
+	//nolint:godox
+	// TODO: All behavioral traits between resolvers must be surfaced here.
+	// underscoreExpansionSupported() bool
 }
