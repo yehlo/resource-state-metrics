@@ -105,7 +105,7 @@ setup:
 
 .gitmessage: hack/check-conventional-commit.sh
 	@types=$$(grep 'ALLOWED_TYPES=' $< | cut -d'"' -f2 | tr '|' ' '); \
-	printf '\n# type(scope): subject\n#\n# Extended body.\n#\n# Allowed types: %s' "$$types" > $@
+	printf '\n# type: <subject>\n#\n# <body>\n#\n# Allowed types: %s\n#' "$$types" > $@
 
 ##############
 # Generating #
