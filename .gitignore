@@ -1,6 +1,7 @@
 # Module paraphernalia
 assets/
 /resource-state-metrics
+/resource-state-metrics-latest.tar
 vendor/
 
 # Generated intermediaries

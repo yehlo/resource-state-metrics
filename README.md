@@ -19,6 +19,10 @@ Start developing by following these steps:
 
 For more details, take a look at the [Makefile](Makefile) targets.
 
+### Building
+
+Either build with your local arch with `make image` or build multi-arch images with `make image_multiarch`. The resulting image(s) will be tagged as `$(PROJECT_NAME):$(BUILD_TAG)` (defaulting to `resource-state-metrics:latest` if the current commit is not tagged with a version). For multi-arch images, the resulting image(s) will be saved as `$(PROJECT_NAME)-$(BUILD_TAG).tar` in oci format.
+
 ## Notes
 
 - Garbage in, garbage out: Invalid configurations will generate invalid metrics. The exception to this being that certain checks that ensure metric structure are still present (for e.g., `value` should be a `float64`).

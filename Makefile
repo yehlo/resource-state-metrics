@@ -4,6 +4,7 @@ ASSETS_DIR ?= assets
 BOILERPLATE_GO_COMPLIANT ?= hack/boilerplate.go.txt
 BOILERPLATE_YAML_COMPLIANT ?= hack/boilerplate.yaml.txt
 BUILD_TAG ?= $(shell git describe --tags --exact-match 2>/dev/null || echo "latest")
+BUILDX_BUILDER ?= $(PROJECT_NAME)-builder
 CHECKMAKE ?= $(shell which checkmake)
 CHECKMAKE_VERSION ?= v0.3.2
 CODE_GENERATOR_VERSION ?= v0.32.3
@@ -34,6 +35,7 @@ MARKDOWNFMT ?= $(shell which markdownfmt)
 MARKDOWNFMT_VERSION ?= v3.1.0
 MD_FILES = $(shell find . \( -type d -name 'vendor' -o -type d -name $(patsubst %/,%,$(patsubst ./%,%,$(ASSETS_DIR))) \) -prune -o -type f -name "*.md" -print)
 PIPX ?= pipx
+PLATFORMS ?= linux/arm64,linux/amd64,linux/s390x,linux/ppc64le
 PPROF_OPTIONS ?=
 PPROF_PORT ?= 9998
 PROJECT_NAME = resource-state-metrics
@@ -162,6 +164,12 @@ $(PROJECT_NAME): $(GO_FILES)
 
 .PHONY: build
 build: $(PROJECT_NAME)
+
+# creates a builder if not specified
+.PHONY: image_multiarch
+image_multiarch:
+	@docker buildx inspect $(BUILDX_BUILDER) >/dev/null 2>&1 || docker buildx create --name $(BUILDX_BUILDER) --driver docker-container --bootstrap
+	@docker buildx build --builder $(BUILDX_BUILDER) --platform $(PLATFORMS) -t $(PROJECT_NAME):$(BUILD_TAG) --output type=oci,dest=$(PROJECT_NAME)-$(BUILD_TAG).tar .
 
 ###########
 # Running #
